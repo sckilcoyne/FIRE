@@ -44,28 +44,32 @@ yearlySavings = currentSalary * savingsRate
 netIncome = currentSalary - yearlySavings
 retirementGoal = netIncome / SWR
 
-principalGrowth = [currentSavings * (1 + RoR) ** x for x in yearsAway]
 
-savingsGrowth = [yearlySavings * ((1 + RoR) ** x - 1) / RoR for x in yearsAway]
+def growth(currentSavings, yearsAway, RoR, yearlySavings):
+    principalGrowth = [currentSavings * (1 + RoR) ** x for x in yearsAway]
 
-FV = [sum(i) for i in zip(principalGrowth, savingsGrowth)]
+    savingsGrowth = [yearlySavings *
+                     ((1 + RoR) ** x - 1) / RoR for x in yearsAway]
 
-totalGrowth = [FV[i] - (i+1)*yearlySavings -
-               currentSavings for i, x in enumerate(FV)]
+    FV = [sum(i) for i in zip(principalGrowth, savingsGrowth)]
 
-# savedBeatsSaving =
+    totalGrowth = [FV[i] - (i+1)*yearlySavings -
+                   currentSavings for i, x in enumerate(FV)]
 
-# st.write('SWR: ' + str(SWR))
-# st.write('savingsRate: ' + str(savingsRate))
-# st.write('yearlySavings: ' + str(yearlySavings))
-# st.write('netIncome: ' + str(netIncome))
-# st.write('retirementGoal: ' + str(retirementGoal))
+    return FV, totalGrowth
+
+
+minFV, minTotalGrowth = growth(
+    currentSavings, yearsAway, RoR - 0.02, yearlySavings)
+maxFV, maxTotalGrowth = growth(
+    currentSavings, yearsAway, RoR + 0.02, yearlySavings)
+FV, totalGrowth = growth(currentSavings, yearsAway, RoR, yearlySavings)
 
 # Plots
-
 fig, ax = plt.subplots(2, sharex=True)
 
 ax[0].plot(ages, FV)
+ax[0].fill_between(ages, minFV, maxFV, alpha=0.2)
 ax[0].axhline(retirementGoal, label='Retirement Goal',
               linestyle='--', linewidth=1, color='g')
 
@@ -75,6 +79,7 @@ ax[0].legend()
 ax[0].set_title('Retirement Savings')
 
 ax[1].plot(ages, totalGrowth)
+ax[1].fill_between(ages, minTotalGrowth, maxTotalGrowth, alpha=0.2)
 ax[1].axhline(netIncome, label='Net Income',
               linestyle='--', linewidth=1, color='r')
 ax[1].axhline(yearlySavings, label='Yearly Savings',
