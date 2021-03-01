@@ -13,6 +13,7 @@ import math
 
 
 # %% App Header
+st.set_page_config(page_title='FIRE Milestone Calculator', page_icon=None)
 st.title('FIRE Milestone Calculator')
 
 
