@@ -254,13 +254,7 @@ set_shared_xlabel([ax2, ax3], 'Years of Compounding Growth')
 fig.savefig('Outputs/Market Returns.png')
 
 
-storeResults = pd.HDFStore('Outputs/storeResults.h5')
-storeRandomGrowth = pd.HDFStore('Outputs/storeRandomGrowth.h5')
-storeRandomGrowthStats = pd.HDFStore('Outputs/storeRandomGrowthStats.h5')
-
-storeResults['resultsDf'] = resultsDf
-storeRandomGrowth['randomGrowth'] = randomGrowth
-storeRandomGrowthStats['randomGrowthStats'] = randomGrowthStats
-
-# store['df'] = df  # save it
-# store['df']  # load it
+resultsDf.to_hdf('Outputs/results.h5', key='results', mode='w')
+randomGrowth.to_hdf('Outputs/randomGrowth.h5', key='randomGrowth', mode='w')
+randomGrowthStats.to_hdf('Outputs/randomGrowthStats.h5',
+                         key='randomGrowthStats', mode='w')

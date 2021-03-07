@@ -10,13 +10,52 @@ import streamlit as st
 import matplotlib.pyplot as plt
 # import numpy as np
 import math
+import pandas as pd
+import requests
 
 
 # %% App Header
 st.set_page_config(page_title='FIRE Milestone Calculator', page_icon=None)
 st.title('FIRE Milestone Calculator')
 
+# %%Import Data
 
+
+@st.cache
+def import_from_github():
+    # Github data sources
+    githubRepo = 'https://github.com/sckilcoyne/FIRE/'
+    githubBranch = 'main/'
+    githubFolder = 'Outputs/'
+    githubURL = githubRepo + 'blob/' + githubBranch + githubFolder
+    raw = '?raw=true'
+
+    resultsDfFile = githubURL + 'storeResultsDf.h5' + raw
+    randomGrowthFile = githubURL + 'storeRandomGrowth.h5' + raw
+    randomGrowthStatsFile = githubURL + 'storeRandomGrowthStats.h5' + raw
+
+    print(resultsDfFile + '\n' + randomGrowthFile +
+          '\n' + randomGrowthStatsFile)
+
+    # Import data
+    r = requests.get(resultsDfFile, allow_redirects=True)
+    open('resultsDf_github.h5', 'wb').write(r.content)
+    resultsDf = pd.read_hdf('resultsDf_github.h5', 'resultsDf')
+
+    r = requests.get(randomGrowthFile, allow_redirects=True)
+    open('randomGrowth_github.h5', 'wb').write(r.content)
+    randomGrowth = pd.read_hdf('randomGrowth_github.h5', 'randomGrowth')
+
+    r = requests.get(randomGrowthStatsFile, allow_redirects=True)
+    open('randomGrowthStats_github.h5', 'wb').write(r.content)
+    randomGrowthStats = pd.read_hdf(
+        'randomGrowthStats_github.h5', 'randomGrowthStats')
+
+    return resultsDf, randomGrowth, randomGrowthStats
+
+
+resultsDf, randomGrowth, randomGrowthStats = import_from_github()
+print(resultsDf.head(5))
 # %% Sidebar Inputs
 age = st.sidebar.number_input(
     'Current Age', min_value=18, max_value=70, value=30, step=1)
@@ -35,9 +74,10 @@ SWR = st.sidebar.number_input(
     'Withdrawal Rate (%)', min_value=1., max_value=10., value=3.5,
     step=0.25, format='%.1f') / 100
 
-RoR = st.sidebar.number_input(
-    'Average Rate of Return (%)', min_value=1., max_value=15., value=6.,
-    step=0.25, format='%.1f') / 100
+# RoR = st.sidebar.number_input(
+#     'Average Rate of Return (%)', min_value=1., max_value=15., value=6.,
+#     step=0.25, format='%.1f') / 100
+RoR = 7.5
 
 
 # %% Calculations
@@ -173,4 +213,5 @@ st.text('Yearly Savings = Salary * Savings Rate' + '\n' +
         'Net Income = Salary - Yearly Savings' + '\n' +
         'Retirement Goal = Net Income / SWR' + '\n' +
         '\n' +
-        'Error range on plots is +/-2% Rate of Return')
+        'Error range on plots is 5th-95th Percentile of Simulated Returns')
+st.markdown("![Market Returns](https://raw.githubusercontent.com/sckilcoyne/FIRE/f8969ea9bc17dc007accf02aba3134d756c91db4/Outputs/Market%20Returns.png)")
