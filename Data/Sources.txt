@@ -1,0 +1,5 @@
+https://www.slickcharts.com/sp500/returns
+
+http://www.econ.yale.edu/~shiller/data.htm
+
+Bureau of Labor Statistics. “Consumer Price Index Database, All Urban Consumers.” Select "Top Picks" then "U.S. cities average, all items." On the next page select "More Formatting Options." Set starting year to 1926 and select "12-Month Percent Change.

@@ -88,11 +88,6 @@ def growth(currentSavings, yearsAway, RoR, yearlySavings):
 
 def milestone_achievement(RoR, currentSavings, yearlySavings, milestoneGoal):
 
-    #	t =ln(F/p)/(ln(1+r/n)n)
-
-    # years2goal = math.log(milestoneGoal / currentSavings) / \
-    #     math.log(1 + RoR)
-
     years2goal = math.log((milestoneGoal + yearlySavings / RoR) /
                           (currentSavings + yearlySavings / RoR)) / \
         math.log(1 + RoR)
@@ -117,31 +112,35 @@ achieveRE.append(milestone_achievement(
 # %% Plot Investment Growth and FIRE Milestones
 fig, ax = plt.subplots(2, sharex=True)
 
+# Savings over time
 ax[0].plot(ages, FV)
 ax[0].fill_between(ages, minFV, maxFV, alpha=0.2)
 ax[0].axhline(retirementGoal, label='Retirement Goal',
               linestyle='--', linewidth=1, color='g')
-ax[0].annotate('Retirement Goal: $' + str(round(retirementGoal / 1e6, 2)) + ' mil',  # this is the text
-               (age, retirementGoal),  # this is the point to label
-               textcoords="offset points",  # how to position the text
-               xytext=(1, 2),  # distance from text to points (x,y)
-               ha='left')  # horizontal alignment can be left, right or center
-
-ax[0].annotate(str(round(achieveRE[0], 1)),  # this is the text
-               (achieveRE[0], retirementGoal),  # this is the point to label
-               textcoords="offset points",  # how to position the text
-               xytext=(0, 10),  # distance from text to points (x,y)
-               ha='center')  # horizontal alignment can be left, right or center
-ax[0].annotate(str(round(achieveRE[1], 1)),  # this is the text
-               (achieveRE[1], retirementGoal),  # this is the point to label
-               textcoords="offset points",  # how to position the text
-               xytext=(+10, -10),  # distance from text to points (x,y)
-               ha='center')  # horizontal alignment can be left, right or center
-ax[0].annotate(str(round(achieveRE[2], 1)),  # this is the text
-               (achieveRE[2], retirementGoal),  # this is the point to label
-               textcoords="offset points",  # how to position the text
-               xytext=(-10, -10),  # distance from text to points (x,y)
-               ha='center')  # horizontal alignment can be left, right or center
+ax[0].annotate(
+    'Retirement Goal: $' + str(round(retirementGoal / 1e6, 2)) + ' mil',
+    (age, retirementGoal),  # this is the point to label
+    textcoords="offset points",  # how to position the text
+    xytext=(1, 2),  # distance from text to points (x,y)
+    ha='left')  # horizontal alignment can be left, right or center
+ax[0].annotate(
+    str(round(achieveRE[0], 1)),  # this is the text
+    (achieveRE[0], retirementGoal),  # this is the point to label
+    textcoords="offset points",  # how to position the text
+    xytext=(0, 10),  # distance from text to points (x,y)
+    ha='center')  # horizontal alignment can be left, right or center
+ax[0].annotate(
+    str(round(achieveRE[1], 1)),  # this is the text
+    (achieveRE[1], retirementGoal),  # this is the point to label
+    textcoords="offset points",  # how to position the text
+    xytext=(+10, -10),  # distance from text to points (x,y)
+    ha='center')  # horizontal alignment can be left, right or center
+ax[0].annotate(
+    str(round(achieveRE[2], 1)),  # this is the text
+    (achieveRE[2], retirementGoal),  # this is the point to label
+    textcoords="offset points",  # how to position the text
+    xytext=(-10, -10),  # distance from text to points (x,y)
+    ha='center')  # horizontal alignment can be left, right or center
 
 ax[0].set_xlim([age, achieveRE[1] + 5])
 ax[0].set_ylim([0, retirementGoal * 2])
@@ -149,6 +148,7 @@ ax[0].yaxis.set_major_formatter('${x:1.0f}')
 # ax[0].legend()
 ax[0].set_title('Retirement Savings')
 
+# Investment Gains
 ax[1].plot(ages, totalGrowth)
 ax[1].fill_between(ages, minTotalGrowth, maxTotalGrowth, alpha=0.2)
 ax[1].axhline(currentSalary, label='Salary',
