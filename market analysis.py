@@ -253,7 +253,7 @@ set_shared_xlabel([ax2, ax3], 'Years of Compounding Growth')
 # %% Save Analysis for App Usage
 fig.savefig('Outputs/Market Returns.png')
 
-
+returns.to_hdf('Outputs/returns.h5', key='returns', mode='w')
 resultsDf.to_hdf('Outputs/results.h5', key='results', mode='w')
 randomGrowth.to_hdf('Outputs/randomGrowth.h5', key='randomGrowth', mode='w')
 randomGrowthStats.to_hdf('Outputs/randomGrowthStats.h5',
