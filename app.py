@@ -12,7 +12,10 @@ import matplotlib.pyplot as plt
 import math
 import pandas as pd
 import requests
+
+# Extras for requirements
 import tables
+import pickle5
 
 
 # %% App Header
