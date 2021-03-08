@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import math
 import pandas as pd
 import requests
+import tables
 
 
 # %% App Header
