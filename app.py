@@ -15,7 +15,7 @@ import requests
 
 # Extras for requirements
 import tables
-import pickle5
+import pickle5 as pickle
 
 
 # %% App Header
