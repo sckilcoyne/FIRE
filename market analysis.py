@@ -7,12 +7,17 @@ Created on Thu Mar  4 21:35:32 2021
 
 # %% Set up
 import warnings
-import pandas as pd
-import matplotlib.pyplot as plt
-import statsmodels.api as sm
-import pylab
-from scipy import stats
+
 import numpy as np
+from scipy import stats
+# import pylab
+# import statsmodels.api as sm
+import matplotlib.pyplot as plt
+
+import pickle
+# https://stackoverflow.com/questions/60067953/is-it-possible-to-specify-the-pickle-protocol-when-writing-pandas-to-hdf5
+pickle.HIGHEST_PROTOCOL = 2
+import pandas as pd
 
 # %% Import Data
 # sp500 = pd.read_csv('Data/SlickCharts SP500 History.csv',
