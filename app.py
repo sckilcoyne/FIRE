@@ -30,17 +30,18 @@ def import_from_github():
     githubURL = githubRepo + 'blob/' + githubBranch + githubFolder
     raw = '?raw=true'
 
-    resultsDfFile = githubURL + 'storeResultsDf.h5' + raw
-    randomGrowthFile = githubURL + 'storeRandomGrowth.h5' + raw
-    randomGrowthStatsFile = githubURL + 'storeRandomGrowthStats.h5' + raw
+    resultsDfFile = githubURL + 'results.h5' + raw
+    randomGrowthFile = githubURL + 'randomGrowth.h5' + raw
+    randomGrowthStatsFile = githubURL + 'randomGrowthStats.h5' + raw
+    returnsFile = githubURL + 'returns.h5' + raw
 
     print(resultsDfFile + '\n' + randomGrowthFile +
-          '\n' + randomGrowthStatsFile)
+          '\n' + randomGrowthStatsFile + '\n' + returnsFile)
 
     # Import data
     r = requests.get(resultsDfFile, allow_redirects=True)
     open('resultsDf_github.h5', 'wb').write(r.content)
-    resultsDf = pd.read_hdf('resultsDf_github.h5', 'resultsDf')
+    resultsDf = pd.read_hdf('resultsDf_github.h5', 'results')
 
     r = requests.get(randomGrowthFile, allow_redirects=True)
     open('randomGrowth_github.h5', 'wb').write(r.content)
@@ -51,11 +52,16 @@ def import_from_github():
     randomGrowthStats = pd.read_hdf(
         'randomGrowthStats_github.h5', 'randomGrowthStats')
 
-    return resultsDf, randomGrowth, randomGrowthStats
+    r = requests.get(returnsFile, allow_redirects=True)
+    open('returns_github.h5', 'wb').write(r.content)
+    returns = pd.read_hdf(
+        'returns_github.h5', 'returns')
+
+    return resultsDf, randomGrowth, randomGrowthStats, returns
 
 
-resultsDf, randomGrowth, randomGrowthStats = import_from_github()
-print(resultsDf.head(5))
+resultsDf, randomGrowth, randomGrowthStats, returns = import_from_github()
+# print(resultsDf.head(5))
 # %% Sidebar Inputs
 age = st.sidebar.number_input(
     'Current Age', min_value=18, max_value=70, value=30, step=1)
@@ -77,7 +83,7 @@ SWR = st.sidebar.number_input(
 # RoR = st.sidebar.number_input(
 #     'Average Rate of Return (%)', min_value=1., max_value=15., value=6.,
 #     step=0.25, format='%.1f') / 100
-RoR = 7.5
+RoR = returns['Net Returns'].median()
 
 
 # %% Calculations
@@ -213,5 +219,6 @@ st.text('Yearly Savings = Salary * Savings Rate' + '\n' +
         'Net Income = Salary - Yearly Savings' + '\n' +
         'Retirement Goal = Net Income / SWR' + '\n' +
         '\n' +
-        'Error range on plots is 5th-95th Percentile of Simulated Returns')
+        'Error range on plots is +/-2% of median RoR')
+# 'Error range on plots is 5th-95th Percentile of Simulated Returns')
 st.markdown("![Market Returns](https://raw.githubusercontent.com/sckilcoyne/FIRE/f8969ea9bc17dc007accf02aba3134d756c91db4/Outputs/Market%20Returns.png)")
