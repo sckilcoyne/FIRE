@@ -35,36 +35,37 @@ def import_from_github():
     raw = '?raw=true'
 
     resultsDfFile = githubURL + 'results.h5' + raw
-    randomGrowthFile = githubURL + 'randomGrowth.h5' + raw
+    simulatedPerformanceFile = githubURL + 'simulatedPerformance.h5' + raw
     randomGrowthStatsFile = githubURL + 'randomGrowthStats.h5' + raw
-    returnsFile = githubURL + 'returns.h5' + raw
+    marketReturnsFile = githubURL + 'marketReturns.h5' + raw
 
-    print(resultsDfFile + '\n' + randomGrowthFile +
-          '\n' + randomGrowthStatsFile + '\n' + returnsFile)
+    print(resultsDfFile + '\n' + simulatedPerformanceFile +
+          '\n' + randomGrowthStatsFile + '\n' + marketReturnsFile)
 
     # Import data
     r = requests.get(resultsDfFile, allow_redirects=True)
     open('resultsDf_github.h5', 'wb').write(r.content)
     resultsDf = pd.read_hdf('resultsDf_github.h5', 'results')
 
-    r = requests.get(randomGrowthFile, allow_redirects=True)
-    open('randomGrowth_github.h5', 'wb').write(r.content)
-    randomGrowth = pd.read_hdf('randomGrowth_github.h5', 'randomGrowth')
+    r = requests.get(simulatedPerformanceFile, allow_redirects=True)
+    open('simulatedPerformance_github.h5', 'wb').write(r.content)
+    simulatedPerformance = pd.read_hdf('simulatedPerformance_github.h5',
+                                       'simulatedPerformance')
 
     r = requests.get(randomGrowthStatsFile, allow_redirects=True)
     open('randomGrowthStats_github.h5', 'wb').write(r.content)
     randomGrowthStats = pd.read_hdf(
         'randomGrowthStats_github.h5', 'randomGrowthStats')
 
-    r = requests.get(returnsFile, allow_redirects=True)
-    open('returns_github.h5', 'wb').write(r.content)
-    returns = pd.read_hdf(
-        'returns_github.h5', 'returns')
+    r = requests.get(marketReturnsFile, allow_redirects=True)
+    open('marketReturns_github.h5', 'wb').write(r.content)
+    marketReturns = pd.read_hdf(
+        'marketReturns_github.h5', 'marketReturns')
 
-    return resultsDf, randomGrowth, randomGrowthStats, returns
+    return resultsDf, simulatedPerformance, randomGrowthStats, marketReturns
 
 
-resultsDf, randomGrowth, randomGrowthStats, returns = import_from_github()
+resultsDf, simulatedPerformance, randomGrowthStats, marketReturns = import_from_github()
 # print(resultsDf.head(5))
 # %% Sidebar Inputs
 age = st.sidebar.number_input(
@@ -87,7 +88,7 @@ SWR = st.sidebar.number_input(
 # RoR = st.sidebar.number_input(
 #     'Average Rate of Return (%)', min_value=1., max_value=15., value=6.,
 #     step=0.25, format='%.1f') / 100
-RoR = returns['Net Returns'].median()
+RoR = marketReturns['Net Returns'].median()
 
 
 # %% Calculations

@@ -7,6 +7,7 @@ Created on Thu Mar  4 21:35:32 2021
 
 # %% Set up
 import warnings
+import sys
 
 import numpy as np
 from scipy import stats
@@ -14,10 +15,13 @@ from scipy import stats
 # import statsmodels.api as sm
 import matplotlib.pyplot as plt
 
-import pickle
-# https://stackoverflow.com/questions/60067953/is-it-possible-to-specify-the-pickle-protocol-when-writing-pandas-to-hdf5
-pickle.HIGHEST_PROTOCOL = 2
+import ForcePickle
 import pandas as pd
+
+# %% Parameters
+goodFitThresh = 0.95  # How good should a distribution be to used in sims
+simYears = 100  # Number of years to generate random data for
+N = 1000  # Number of randomized timeseries per distribution
 
 # %% Import Data
 # sp500 = pd.read_csv('Data/SlickCharts SP500 History.csv',
@@ -37,77 +41,12 @@ import pandas as pd
 shiller = pd.read_excel('Data/Shiller Yearly Market Data.xlsx',
                         sheet_name='Data', header=7, index_col=0)
 
-returns = pd.DataFrame()
-returns['Net Returns'] = shiller['Unnamed: 16']
-returns.dropna(inplace=True)
-returns['Net Returns 100'] = returns['Net Returns'].multiply(100)
+marketReturns = pd.DataFrame()
+marketReturns['Net Returns'] = shiller['Unnamed: 16']
+marketReturns.dropna(inplace=True)
+marketReturns['Net Returns 100'] = marketReturns['Net Returns'].multiply(100)
 
-# %% Distribution Determinination
-# https://medium.com/@amirarsalan.rajabi/distribution-fitting-with-python-scipy-bb70a42c0aed
-# https://nedyoxall.github.io/fitting_all_of_scipys_distributions.html
-list_of_dists = ['alpha', 'anglit', 'arcsine', 'argus', 'beta', 'betaprime',
-                 'bradford', 'burr', 'burr12', 'cauchy', 'chi', 'chi2',
-                 'cosine', 'crystalball', 'dgamma', 'dweibull', 'erlang',
-                 'expon', 'exponnorm', 'exponweib', 'exponpow', 'f',
-                 'fatiguelife', 'fisk', 'foldcauchy', 'foldnorm',
-                 'genlogistic',  'genpareto', 'gennorm', 'genexpon',
-                 'genextreme', 'gausshyper', 'gamma', 'gengamma',
-                 'genhalflogistic', 'geninvgauss', 'gilbrat', 'gompertz',
-                 'gumbel_r', 'gumbel_l', 'halfcauchy', 'halflogistic',
-                 'halfnorm', 'halfgennorm', 'hypsecant', 'invgamma',
-                 'invgauss', 'invweibull', 'johnsonsb', 'johnsonsu', 'kappa4',
-                 'kappa3', 'ksone',  # 'kstwo',
-                 'kstwobign', 'laplace',
-                 'laplace_asymmetric', 'levy', 'levy_l',  # 'levy_stable',
-                 'logistic', 'loggamma', 'loglaplace', 'lognorm', 'lomax',
-                 'maxwell', 'mielke', 'moyal', 'nakagami', 'ncx2', 'ncf',
-                 'nct', 'norm', 'norminvgauss', 'pareto', 'pearson3',
-                 'powerlaw', 'powerlognorm', 'powernorm', 'rdist',
-                 'reciprocal', 'rayleigh', 'rice', 'recipinvgauss',
-                 'semicircular', 'skewnorm', 't', 'triang', 'truncexpon',
-                 'truncnorm', 'tukeylambda', 'uniform', 'vonmises',
-                 'vonmises_line', 'wald', 'weibull_min', 'weibull_max',
-                 'wrapcauchy']
-
-# results = []
-resultsDf = pd.DataFrame(columns=['Distribution', 'Statistic', 'p-value'])
-with warnings.catch_warnings():
-    warnings.filterwarnings(
-        'ignore', category=RuntimeWarning)
-    for i in list_of_dists:
-        print(i)
-        dist = getattr(stats, i)
-        param = dist.fit(returns['Net Returns'])
-        a = stats.kstest(returns['Net Returns'], i, args=param)
-        # results.append((i, a[0], a[1]))
-        newRow = pd.Series([i, a[0], a[1]], index=resultsDf.columns)
-        resultsDf = resultsDf.append(newRow, ignore_index=True)
-
-
-# results.sort(key=lambda x: float(x[2]), reverse=True)
-# resultsTop = results[:5]
-# for j in resultsTop:
-#     print("{}: statistic={}, pvalue={}".format(j[0], j[1], j[2]))
-
-resultsDf.sort_values('p-value', ascending=False,
-                      inplace=True, na_position='last')
-print(resultsDf.head(5))
-
-
-# %% Create Random Data with Best Distribution
-# bestDistName = results[0][0]
-bestDistName = resultsDf['Distribution'].iloc[0]
-bestDist = getattr(stats, bestDistName)
-bestDistParams = bestDist.fit(returns['Net Returns'])
-
-randomData = pd.DataFrame()
-simYears = 100
-N = 1000
-
-for i in range(N):
-    randomData[i] = [1] + bestDist.rvs(
-        bestDistParams[0], bestDistParams[1], loc=bestDistParams[2],
-        scale=bestDistParams[3], size=simYears).tolist()
+# %% Functions
 
 
 def yearly2cumalitive(yearlyCol):
@@ -131,24 +70,6 @@ def yearly2cumalitive(yearlyCol):
             cumalitiveCol = np.append(cumalitiveCol, cumalitiveResult)
 
     return cumalitiveCol
-
-
-randomGrowth = randomData.apply(yearly2cumalitive, axis=0)
-
-# Convert from fractional to percentage
-randomData = randomData.multiply(100)
-randomGrowth = randomGrowth.multiply(100)
-
-rowMedian = randomGrowth.median(axis=1)
-rowPercentileHigh = randomGrowth.quantile(0.95, axis=1)
-rowPercentileLow = randomGrowth.quantile(0.05, axis=1)
-
-randomGrowthStats = pd.DataFrame()
-randomGrowthStats['Median'] = rowMedian
-randomGrowthStats['Percentile 95th'] = rowPercentileHigh
-randomGrowthStats['Percentile 5th'] = rowPercentileLow
-
-# %% Analysis Plot
 
 
 def set_shared_xlabel(a, xlabel, labelpad=0.01):
@@ -191,15 +112,120 @@ def set_shared_xlabel(a, xlabel, labelpad=0.01):
                                  transform=f.transFigure)
 
 
+# %% Distribution Determinination
+# https://medium.com/@amirarsalan.rajabi/distribution-fitting-with-python-scipy-bb70a42c0aed
+# https://nedyoxall.github.io/fitting_all_of_scipys_distributions.html
+list_of_dists = ['alpha', 'anglit', 'arcsine', 'argus', 'beta', 'betaprime',
+                 'bradford', 'burr', 'burr12', 'cauchy', 'chi', 'chi2',
+                 'cosine', 'crystalball', 'dgamma', 'dweibull', 'erlang',
+                 'expon', 'exponnorm', 'exponweib', 'exponpow', 'f',
+                 'fatiguelife', 'fisk', 'foldcauchy', 'foldnorm',
+                 'genlogistic',  'genpareto', 'gennorm', 'genexpon',
+                 'genextreme', 'gausshyper', 'gamma', 'gengamma',
+                 'genhalflogistic', 'geninvgauss', 'gilbrat', 'gompertz',
+                 'gumbel_r', 'gumbel_l', 'halfcauchy', 'halflogistic',
+                 'halfnorm', 'halfgennorm', 'hypsecant', 'invgamma',
+                 'invgauss', 'invweibull', 'johnsonsb', 'johnsonsu', 'kappa4',
+                 'kappa3', 'ksone',  # 'kstwo',
+                 'kstwobign', 'laplace',
+                 'laplace_asymmetric', 'levy', 'levy_l',  # 'levy_stable',
+                 'logistic', 'loggamma', 'loglaplace', 'lognorm', 'lomax',
+                 'maxwell', 'mielke', 'moyal', 'nakagami', 'ncx2', 'ncf',
+                 'nct', 'norm', 'norminvgauss', 'pareto', 'pearson3',
+                 'powerlaw', 'powerlognorm', 'powernorm', 'rdist',
+                 'reciprocal', 'rayleigh', 'rice', 'recipinvgauss',
+                 'semicircular', 'skewnorm', 't', 'triang', 'truncexpon',
+                 'truncnorm', 'tukeylambda', 'uniform', 'vonmises',
+                 'vonmises_line', 'wald', 'weibull_min', 'weibull_max',
+                 'wrapcauchy']
+
+# results = []
+resultsDf = pd.DataFrame(columns=['Distribution', 'Statistic', 'p-value'])
+with warnings.catch_warnings():
+    warnings.filterwarnings(
+        'ignore', category=RuntimeWarning)
+    for i in list_of_dists:
+        print(i)
+        dist = getattr(stats, i)
+        param = dist.fit(marketReturns['Net Returns'])
+        a = stats.kstest(marketReturns['Net Returns'], i, args=param)
+        # results.append((i, a[0], a[1]))
+        newRow = pd.Series([i, a[0], a[1]], index=resultsDf.columns)
+        resultsDf = resultsDf.append(newRow, ignore_index=True)
+
+resultsDf.sort_values('p-value', ascending=False,
+                      inplace=True, na_position='last')
+
+
+goodFits = resultsDf[resultsDf['p-value'] > goodFitThresh]
+print(goodFits)
+
+
+# %% Create Random Data with Good Distribution(s)
+
+# Generate [N] time series of length [simYears] of randomly generated yearly
+# market performance for each distribution determined to be a good fit to the
+# historical data
+simulatedReturns = pd.DataFrame()
+for distName in goodFits['Distribution']:
+    print(distName)
+    distFunc = getattr(stats, distName)
+    distParams = distFunc.fit(marketReturns['Net Returns'])
+
+    for i in range(N):
+        iterName = distName + str(i)
+        if len(distParams) == 2:
+            simulatedReturns[iterName] = [1] + distFunc.rvs(
+                loc=distParams[-2], scale=distParams[-1],
+                size=simYears).tolist()
+        elif len(distParams) == 3:
+            simulatedReturns[iterName] = [1] + distFunc.rvs(
+                distParams[0],
+                loc=distParams[-2], scale=distParams[-1],
+                size=simYears).tolist()
+        elif len(distParams) == 4:
+            simulatedReturns[iterName] = [1] + distFunc.rvs(
+                distParams[0], distParams[1],
+                loc=distParams[-2], scale=distParams[-1],
+                size=simYears).tolist()
+        else:
+            sys.exit('distParams length = ' + str(len(distParams)))
+
+# Convert yearly returns to net performance for each time series
+simulatedPerformance = simulatedReturns.apply(yearly2cumalitive, axis=0)
+
+# Convert from fractional to percentage
+simulatedReturns = simulatedReturns.multiply(100)
+simulatedPerformance = simulatedPerformance.multiply(100)
+
+# Find each whole percentile of performance along the time series
+simulatedPerformanceStats = pd.DataFrame()
+for i in np.linspace(0.01, 0.99, 99):
+    percentile = str(int(i * 100)) + ' Percentile'
+    simulatedPerformanceStats[percentile] = simulatedPerformance.quantile(
+        i, axis=1)
+
+# rowMedian = simulatedPerformance.median(axis=1)
+# rowPercentileHigh = simulatedPerformance.quantile(0.95, axis=1)
+# rowPercentileLow = simulatedPerformance.quantile(0.05, axis=1)
+
+# randomGrowthStats = pd.DataFrame()
+# randomGrowthStats['Median'] = rowMedian
+# randomGrowthStats['Percentile 95th'] = rowPercentileHigh
+# randomGrowthStats['Percentile 5th'] = rowPercentileLow
+
+# %% Analysis Plot
+
+
 fig, axs = plt.subplots(figsize=(15, 8))
 fig.suptitle('Market Returns \n Historical and Simulated')
 
 # Returns Distribution
 ax1 = plt.subplot(2, 2, (1, 2))
-ax1.hist(returns['Net Returns 100'], density=True,
+ax1.hist(marketReturns['Net Returns 100'], density=True,
          bins=20, label='Net Returns', alpha=0.5)
 
-medianReturn = returns['Net Returns 100'].median()
+medianReturn = marketReturns['Net Returns 100'].median()
 ax1.axvline(medianReturn, label='Meadin Return',
             linestyle='--', linewidth=2, color='r')
 ax1.annotate(
@@ -225,8 +251,8 @@ distLabel = bestDistName + ' pdf: ' + \
 ax1.plot(x, rv.pdf(x), 'k-', lw=2, label=distLabel)
 ax1.legend()
 ax1.xaxis.set_major_formatter('{x:1.0f}%')
-yearFirst = returns.head(1).index.item()
-yearLast = returns.tail(1).index.item()
+yearFirst = marketReturns.head(1).index.item()
+yearLast = marketReturns.tail(1).index.item()
 ax1.set_xlabel('Historical Market Returns (' +
                str(int(yearFirst)) + '-' + str(int(yearLast)) + ')')
 
@@ -234,7 +260,7 @@ ax1.set_xlabel('Historical Market Returns (' +
 yearSwitchOver = 30
 
 ax2 = plt.subplot(2, 2, 3)  # Linear axes for early growth
-randomGrowth.plot(legend=False, color='grey', alpha=0.01, ax=ax2)
+simulatedPerformance.plot(legend=False, color='grey', alpha=0.01, ax=ax2)
 randomGrowthStats.plot(ax=ax2, legend=False)
 ax2.set_ylim([.1, randomGrowthStats['Median'][yearSwitchOver] * 1.5])
 ax2.set_xlim([0, yearSwitchOver])
@@ -242,7 +268,7 @@ ax2.set_ylabel('Initial Value')
 ax2.yaxis.set_major_formatter('{x:1.0f}%')
 
 ax3 = plt.subplot(2, 2, 4)  # Log axis for long-term growth
-randomGrowth.plot(legend=False, color='grey', alpha=0.01, ax=ax3)
+simulatedPerformance.plot(legend=False, color='grey', alpha=0.01, ax=ax3)
 randomGrowthStats.plot(ax=ax3)
 ax3.set_yscale('log')
 ax3.set_ylim([50, randomGrowthStats['Percentile 95th'].max() * 1.2])
@@ -258,8 +284,13 @@ set_shared_xlabel([ax2, ax3], 'Years of Compounding Growth')
 # %% Save Analysis for App Usage
 fig.savefig('Outputs/Market Returns.png')
 
-returns.to_hdf('Outputs/returns.h5', key='returns', mode='w')
-resultsDf.to_hdf('Outputs/results.h5', key='results', mode='w')
-randomGrowth.to_hdf('Outputs/randomGrowth.h5', key='randomGrowth', mode='w')
+marketReturns.to_hdf('Outputs/marketReturns.h5',
+                     key='marketReturns', mode='w')
+resultsDf.to_hdf('Outputs/results.h5',
+                 key='results', mode='w')
+simulatedPerformance.to_hdf('Outputs/simulatedPerformance.h5',
+                            key='simulatedPerformance', mode='w')
 randomGrowthStats.to_hdf('Outputs/randomGrowthStats.h5',
                          key='randomGrowthStats', mode='w')
+goodFits.to_hdf('Outputs/goodFits.h5',
+                key='goodFits', mode='w')
