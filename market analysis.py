@@ -7,12 +7,9 @@ Created on Thu Mar  4 21:35:32 2021
 
 # %% Set up
 import warnings
-import sys
 
 import numpy as np
 from scipy import stats
-# import pylab
-# import statsmodels.api as sm
 import matplotlib.pyplot as plt
 
 import ForcePickle
@@ -21,7 +18,7 @@ import pandas as pd
 # %% Parameters
 goodFitThresh = 0.95  # How good should a distribution be to used in sims
 simYears = 100  # Number of years to generate random data for
-N = 1000  # Number of randomized timeseries per distribution
+N = 100  # Number of randomized timeseries per distribution
 
 # %% Import Data
 # sp500 = pd.read_csv('Data/SlickCharts SP500 History.csv',
@@ -95,10 +92,8 @@ def set_shared_xlabel(a, xlabel, labelpad=0.01):
     # get the coordinates of the left side of the tick labels
     y0 = 1
     for at in a:
-        # just to make sure we don't and up with multiple labels
-        at.set_xlabel('')
+        at.set_xlabel('')  # prevent multiple labels
         bboxes, _ = at.xaxis.get_ticklabel_extents(f.canvas.renderer)
-        # bboxes = bboxes.inverse_transformed(f.transFigure)
         bboxes = bboxes.transformed(f.transFigure.inverted())
         yt = bboxes.y0
         if yt < y0:
@@ -149,7 +144,6 @@ with warnings.catch_warnings():
         dist = getattr(stats, i)
         param = dist.fit(marketReturns['Net Returns'])
         a = stats.kstest(marketReturns['Net Returns'], i, args=param)
-        # results.append((i, a[0], a[1]))
         newRow = pd.Series([i, a[0], a[1]], index=resultsDf.columns)
         resultsDf = resultsDf.append(newRow, ignore_index=True)
 
@@ -168,28 +162,16 @@ print(goodFits)
 # historical data
 simulatedReturns = pd.DataFrame()
 for distName in goodFits['Distribution']:
-    print(distName)
+    # print(distName)
     distFunc = getattr(stats, distName)
     distParams = distFunc.fit(marketReturns['Net Returns'])
 
     for i in range(N):
         iterName = distName + str(i)
-        if len(distParams) == 2:
-            simulatedReturns[iterName] = [1] + distFunc.rvs(
-                loc=distParams[-2], scale=distParams[-1],
-                size=simYears).tolist()
-        elif len(distParams) == 3:
-            simulatedReturns[iterName] = [1] + distFunc.rvs(
-                distParams[0],
-                loc=distParams[-2], scale=distParams[-1],
-                size=simYears).tolist()
-        elif len(distParams) == 4:
-            simulatedReturns[iterName] = [1] + distFunc.rvs(
-                distParams[0], distParams[1],
-                loc=distParams[-2], scale=distParams[-1],
-                size=simYears).tolist()
-        else:
-            sys.exit('distParams length = ' + str(len(distParams)))
+        simulatedReturns[iterName] = [1] + \
+            distFunc.rvs(*distParams[:-2],
+                         loc=distParams[-2], scale=distParams[-1],
+                         size=simYears).tolist()
 
 # Convert yearly returns to net performance for each time series
 simulatedPerformance = simulatedReturns.apply(yearly2cumalitive, axis=0)
@@ -205,50 +187,50 @@ for i in np.linspace(0.01, 0.99, 99):
     simulatedPerformanceStats[percentile] = simulatedPerformance.quantile(
         i, axis=1)
 
-# rowMedian = simulatedPerformance.median(axis=1)
-# rowPercentileHigh = simulatedPerformance.quantile(0.95, axis=1)
-# rowPercentileLow = simulatedPerformance.quantile(0.05, axis=1)
-
-# randomGrowthStats = pd.DataFrame()
-# randomGrowthStats['Median'] = rowMedian
-# randomGrowthStats['Percentile 95th'] = rowPercentileHigh
-# randomGrowthStats['Percentile 5th'] = rowPercentileLow
-
 # %% Analysis Plot
-
-
-fig, axs = plt.subplots(figsize=(15, 8))
+fig, axs = plt.subplots(figsize=(15, 10))
 fig.suptitle('Market Returns \n Historical and Simulated')
 
-# Returns Distribution
+# -----Historical Returns-----
+# Returns Distribution Histogram
 ax1 = plt.subplot(2, 2, (1, 2))
 ax1.hist(marketReturns['Net Returns 100'], density=True,
          bins=20, label='Net Returns', alpha=0.5)
 
+# Median Return
 medianReturn = marketReturns['Net Returns 100'].median()
 ax1.axvline(medianReturn, label='Meadin Return',
-            linestyle='--', linewidth=2, color='r')
+            linestyle='--', linewidth=2, color='k')
 ax1.annotate(
     str(round(medianReturn, 1)) + '%',  # annotation text
     (medianReturn, 0),  # this is the point to label
     textcoords="offset points",  # how to position the text
     xytext=(3, 2),  # distance from text to points (x,y)
-    color='r', size='large', weight='demi',
+    color='k', size='large', weight='demi',
     ha='left')  # horizontal alignment can be left, right or center
 
-x = np.linspace(bestDist.ppf(0.01, bestDistParams[0], bestDistParams[1],
-                             loc=bestDistParams[2] * 100,
-                             scale=bestDistParams[3] * 100),
-                bestDist.ppf(0.99, bestDistParams[0], bestDistParams[1],
-                             loc=bestDistParams[2] * 100,
-                             scale=bestDistParams[3] * 100),
-                100)
+# Best Continuous distributions
+for distName in goodFits['Distribution']:
+    # print(distName)
+    distFunc = getattr(stats, distName)
+    distParams = distFunc.fit(marketReturns['Net Returns'])
+    startDistLine = distFunc.ppf(0.01, *distParams[:-2],
+                                 loc=distParams[-2] * 100,
+                                 scale=distParams[-1] * 100)
+    endDistLine = distFunc.ppf(0.99, *distParams[:-2],
+                               loc=distParams[-2] * 100,
+                               scale=distParams[-1] * 100)
+    x = np.linspace(startDistLine, endDistLine, 100)
 
-rv = bestDist(bestDistParams[0], bestDistParams[1],
-              loc=bestDistParams[2] * 100, scale=bestDistParams[3] * 100)
-distLabel = bestDistName + ' pdf: ' + \
-    str(round(resultsDf['p-value'].iloc[0], 4))
-ax1.plot(x, rv.pdf(x), 'k-', lw=2, label=distLabel)
+    rv = distFunc(*distParams[:-2],
+                  loc=distParams[-2] * 100,
+                  scale=distParams[-1] * 100)
+
+    distLabel = distName + ' pdf: ' + \
+        str(round(resultsDf['p-value'].iloc[0], 4))
+    ax1.plot(x, rv.pdf(x), '-', lw=2, label=distLabel)
+
+# Return distribution plot formatting
 ax1.legend()
 ax1.xaxis.set_major_formatter('{x:1.0f}%')
 yearFirst = marketReturns.head(1).index.item()
@@ -256,27 +238,97 @@ yearLast = marketReturns.tail(1).index.item()
 ax1.set_xlabel('Historical Market Returns (' +
                str(int(yearFirst)) + '-' + str(int(yearLast)) + ')')
 
-# Compounding Growth Over Time
+# -----Compounding Growth Over Time-----
 yearSwitchOver = 30
+plottedPercentile = [5, 20, 50, 80, 95]
 
+# Match naming scheme
+plottedPercentile = [
+    str(int(per)) + ' Percentile' for per in plottedPercentile]
+
+# Only plot desired percentiles
+plotSimmedStats = simulatedPerformanceStats[plottedPercentile]
+
+# Prep heatmap
+data = simulatedPerformance.stack().droplevel(level=1)
+
+# Linear plot limits
+xLinMin = 0
+xLinMax = yearSwitchOver
+yLinMin = 0
+yLinMax = simulatedPerformanceStats['50 Percentile'][yearSwitchOver] * 1.5
+
+# Set up desity grid - linear
+xbinsLin = xLinMax - xLinMin + 1
+ybinsLin = int((yLinMax - yLinMin) / 10)
+xGridLin = np.linspace(xLinMin, xLinMax, xbinsLin)
+yGridLin = np.linspace(yLinMin, yLinMax, ybinsLin)
+xLin, yLin = np.meshgrid(xGridLin, yGridLin)
+
+# Get density map - linear
+y = data.iloc[(data.index <= xLinMax) &
+              (data.values <= yLinMax)]
+x = y.index.values
+k = stats.gaussian_kde(np.vstack([x, y]))
+zLin = k(np.vstack([xLin.flatten(), yLin.flatten()]))
+
+# Log Plot limits
+xLogMin = yearSwitchOver
+xLogMax = simYears
+yLogMin = 50
+yLogMax = simulatedPerformanceStats['95 Percentile'].max() * 1.2
+
+# # Set up desity grid - log
+# xbinsLog = xLogMax - xLogMin + 1
+# # ybinsLog = int((yLogMax - yLogMin) / 100)
+# ybinsLog = 500
+# xGridLog = np.linspace(xLogMin, xLogMax, xbinsLog)
+# # yGridLog = np.linspace(yLogMin, yLogMax, ybinsLog)
+# yGridLog = np.geomspace(yLogMin, yLogMax, ybinsLog)
+# xLog, yLog = np.meshgrid(xGridLog, yGridLog)
+
+# # Get density map - log
+# y = data.iloc[(data.index >= xLogMin) &
+#               (data.values >= yLogMin) &
+#               (data.values <= yLogMax)]
+# x = y.index.values
+# k = stats.gaussian_kde(np.vstack([x, y]))
+# zLog = k(np.vstack([xLog.flatten(), yLog.flatten()]))
+
+
+# Plot simulated data on two subplots for short term and long term display
 ax2 = plt.subplot(2, 2, 3)  # Linear axes for early growth
-simulatedPerformance.plot(legend=False, color='grey', alpha=0.01, ax=ax2)
-randomGrowthStats.plot(ax=ax2, legend=False)
-ax2.set_ylim([.1, randomGrowthStats['Median'][yearSwitchOver] * 1.5])
-ax2.set_xlim([0, yearSwitchOver])
+ax3 = plt.subplot(2, 2, 4)  # Log axis for long-term growth
+
+# Plot density map
+ax2.pcolormesh(xLin, yLin, np.power(zLin.reshape(xLin.shape), 0.5),
+               shading='gouraud', cmap='Greys')
+# ax3.pcolormesh(xLog, yLog, np.power(zLog.reshape(xLog.shape), 0.3),
+#                shading='gouraud', cmap='Greys')
+
+for ax in [ax2, ax3]:
+    # simulatedPerformance.plot(
+    #     legend=False, color='gainsboro', alpha=0.01, ax=ax)
+    plotSimmedStats.plot(ax=ax)
+
+# Format Linear Plot
+ax2.set_ylim([yLinMin, yLinMax])
+ax2.set_xlim([xLinMin, xLinMax])
 ax2.set_ylabel('Initial Value')
 ax2.yaxis.set_major_formatter('{x:1.0f}%')
+# ax2.get_legend().remove()  # Legend only on one plot
 
-ax3 = plt.subplot(2, 2, 4)  # Log axis for long-term growth
-simulatedPerformance.plot(legend=False, color='grey', alpha=0.01, ax=ax3)
-randomGrowthStats.plot(ax=ax3)
+# Format Log Plot
 ax3.set_yscale('log')
-ax3.set_ylim([50, randomGrowthStats['Percentile 95th'].max() * 1.2])
-ax3.set_xlim([yearSwitchOver, randomGrowthStats.tail(1).index.item()])
+ax3.set_ylim([yLogMin, yLogMax])
+ax3.set_xlim([xLogMin, xLogMax])
 ax3.yaxis.set_major_formatter('{x:1.0f}%')
 ax3.yaxis.tick_right()
 ax3.set_xlabel('placeholder for tight layout')
+ax3.get_legend().remove()  # Legend only on one plot
 
+
+# Overall figure formatting
 fig.tight_layout()
 set_shared_xlabel([ax2, ax3], 'Years of Compounding Growth')
 
@@ -290,7 +342,51 @@ resultsDf.to_hdf('Outputs/results.h5',
                  key='results', mode='w')
 simulatedPerformance.to_hdf('Outputs/simulatedPerformance.h5',
                             key='simulatedPerformance', mode='w')
-randomGrowthStats.to_hdf('Outputs/randomGrowthStats.h5',
-                         key='randomGrowthStats', mode='w')
+simulatedPerformanceStats.to_hdf('Outputs/simulatedPerformanceStats.h5',
+                                 key='simulatedPerformanceStats', mode='w')
 goodFits.to_hdf('Outputs/goodFits.h5',
                 key='goodFits', mode='w')
+
+
+# %% Testing
+fig, axs = plt.subplots(figsize=(15, 8))
+ax3 = plt.subplot(111)
+
+
+data = simulatedPerformance.stack().droplevel(level=1)
+
+# Set up desity grid - log
+xLogMin = yearSwitchOver
+xLogMax = simYears
+yLogMin = 50
+yLogMax = simulatedPerformanceStats['95 Percentile'].max() * 1.2
+xbinsLog = xLogMax - xLogMin + 1
+# ybinsLog = int((yLogMax - yLogMin) / 100)
+ybinsLog = 300
+xGridLog = np.linspace(xLogMin, xLogMax, xbinsLog)
+# yGridLog = np.linspace(yLogMin, yLogMax, ybinsLog)
+yGridLog = np.geomspace(yLogMin, yLogMax, ybinsLog)
+xLog, yLog = np.meshgrid(xGridLog, yGridLog)
+
+# Get density map - log
+y = data.iloc[(data.index >= xLogMin) &
+              (data.values >= yLogMin) &
+              (data.values <= yLogMax)]
+x = y.index.values
+k = stats.gaussian_kde(np.vstack([x, y]))
+zLog = k(np.vstack([xLog.flatten(), yLog.flatten()]))
+
+# Plot density map
+ax3.pcolormesh(xLog, yLog, np.power(zLog.reshape(xLog.shape), 0.3),
+               shading='auto', cmap='Greys')
+# shading='gouraud', cmap='Greys')
+
+
+# Format Log Plot
+ax3.set_yscale('log')
+ax3.set_ylim([yLogMin, yLogMax])
+ax3.set_xlim([xLogMin, xLogMax])
+ax3.yaxis.set_major_formatter('{x:1.0f}%')
+ax3.yaxis.tick_right()
+ax3.set_xlabel('placeholder for tight layout')
+# ax3.get_legend().remove()  # Legend only on one plot
