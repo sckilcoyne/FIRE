@@ -47,26 +47,40 @@ marketReturns['Net Returns 100'] = marketReturns['Net Returns'].multiply(100)
 
 
 def yearly2cumalitive(yearlyCol):
-    # print(type(yearlyCol))
+    """
+    Convert yearly performance to cumalative timeseries performance.
+
+    yearlyCol: Timeseries list of fractional percentages
+    """
     yearlyCol = yearlyCol.to_numpy()
-    # print(type(yearlyCol))
-    # print(yearlyCol)
 
     cumalitiveCol = np.empty([0, 1])
-    # print(cumalitiveCol)
     for idx, x in enumerate(yearlyCol):
-        # print(idx, yearlyCol[idx])
         if idx == 0:
             cumalitiveCol = np.append(cumalitiveCol, yearlyCol[0])
-            # print(cumalitiveCol)
-            # print(cumalitiveCol[0])
         else:
             cumalitiveResult = cumalitiveCol[idx-1] + \
                 yearlyCol[idx] * cumalitiveCol[idx-1]
-            # print(cumalitiveResult)
             cumalitiveCol = np.append(cumalitiveCol, cumalitiveResult)
 
     return cumalitiveCol
+
+
+def cumalitive2yearly(cumalitiveCol):
+    """
+    Convert cumalative timeseries performance to yearly performance.
+    """
+    cumalitiveCol = cumalitiveCol.to_numpy()
+
+    yearlyCol = np.empty([0, 1])
+    for idx, x in enumerate(cumalitiveCol):
+        if idx == 0:
+            yearlyCol = np.append(yearlyCol, cumalitiveCol[0])
+        else:
+            yearlyResult = cumalitiveCol[idx] / cumalitiveCol[idx-1] - 1
+            yearlyCol = np.append(yearlyCol, yearlyResult)
+
+    return yearlyCol
 
 
 def set_shared_xlabel(a, xlabel, labelpad=0.01):
@@ -186,6 +200,12 @@ for i in np.linspace(0.01, 0.99, 99):
     percentile = str(int(i * 100)) + ' Percentile'
     simulatedPerformanceStats[percentile] = simulatedPerformance.quantile(
         i, axis=1)
+
+simPercentileYearly = simulatedPerformanceStats.divide(100)
+simPercentileYearly = simPercentileYearly.apply(
+    cumalitive2yearly, axis=0)
+simPercentileYearly = simPercentileYearly.multiply(100)
+
 
 # %% Analysis Plot
 fig, axs = plt.subplots(figsize=(15, 10))
@@ -344,6 +364,8 @@ simulatedPerformance.to_hdf('Outputs/simulatedPerformance.h5',
                             key='simulatedPerformance', mode='w')
 simulatedPerformanceStats.to_hdf('Outputs/simulatedPerformanceStats.h5',
                                  key='simulatedPerformanceStats', mode='w')
+simPercentileYearly.to_hdf('Outputs/simPercentileYearly.h5',
+                           key='simPercentileYearly', mode='w')
 goodFits.to_hdf('Outputs/goodFits.h5',
                 key='goodFits', mode='w')
 
