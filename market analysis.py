@@ -18,7 +18,7 @@ import pandas as pd
 # %% Parameters
 goodFitThresh = 0.95  # How good should a distribution be to used in sims
 simYears = 100  # Number of years to generate random data for
-N = 100  # Number of randomized timeseries per distribution
+N = 1000  # Number of randomized timeseries per distribution
 
 # %% Import Data
 # sp500 = pd.read_csv('Data/SlickCharts SP500 History.csv',
@@ -371,44 +371,3 @@ goodFits.to_hdf('Outputs/goodFits.h5',
 
 
 # %% Testing
-fig, axs = plt.subplots(figsize=(15, 8))
-ax3 = plt.subplot(111)
-
-
-data = simulatedPerformance.stack().droplevel(level=1)
-
-# Set up desity grid - log
-xLogMin = yearSwitchOver
-xLogMax = simYears
-yLogMin = 50
-yLogMax = simulatedPerformanceStats['95 Percentile'].max() * 1.2
-xbinsLog = xLogMax - xLogMin + 1
-# ybinsLog = int((yLogMax - yLogMin) / 100)
-ybinsLog = 300
-xGridLog = np.linspace(xLogMin, xLogMax, xbinsLog)
-# yGridLog = np.linspace(yLogMin, yLogMax, ybinsLog)
-yGridLog = np.geomspace(yLogMin, yLogMax, ybinsLog)
-xLog, yLog = np.meshgrid(xGridLog, yGridLog)
-
-# Get density map - log
-y = data.iloc[(data.index >= xLogMin) &
-              (data.values >= yLogMin) &
-              (data.values <= yLogMax)]
-x = y.index.values
-k = stats.gaussian_kde(np.vstack([x, y]))
-zLog = k(np.vstack([xLog.flatten(), yLog.flatten()]))
-
-# Plot density map
-ax3.pcolormesh(xLog, yLog, np.power(zLog.reshape(xLog.shape), 0.3),
-               shading='auto', cmap='Greys')
-# shading='gouraud', cmap='Greys')
-
-
-# Format Log Plot
-ax3.set_yscale('log')
-ax3.set_ylim([yLogMin, yLogMax])
-ax3.set_xlim([xLogMin, xLogMax])
-ax3.yaxis.set_major_formatter('{x:1.0f}%')
-ax3.yaxis.tick_right()
-ax3.set_xlabel('placeholder for tight layout')
-# ax3.get_legend().remove()  # Legend only on one plot

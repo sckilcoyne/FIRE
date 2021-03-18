@@ -6,9 +6,10 @@ Created on Sat Feb 27 17:32:25 2021
 """
 
 # %% Set up
+# import git
 import streamlit as st
 import matplotlib.pyplot as plt
-# import numpy as np
+import numpy as np
 import math
 import pandas as pd
 import requests
@@ -24,49 +25,61 @@ st.title('FIRE Milestone Calculator')
 
 # %%Import Data
 
+# Github data sources
+githubRepo = 'https://github.com/sckilcoyne/FIRE/'
+# githubBranch = git.Repo(
+#     search_parent_directories=True).active_branch.name + '/'
+# githubBranch = 'main' + '/'
+githubBranch = 'sim-error-bars' + '/'
+githubFolder = 'Outputs/'
+githubURL = githubRepo + 'blob/' + githubBranch + githubFolder
+
 
 @st.cache
-def import_from_github():
-    # Github data sources
-    githubRepo = 'https://github.com/sckilcoyne/FIRE/'
-    githubBranch = 'main/'
-    githubFolder = 'Outputs/'
-    githubURL = githubRepo + 'blob/' + githubBranch + githubFolder
+def import_from_github(githubURL):
+
     raw = '?raw=true'
 
-    resultsDfFile = githubURL + 'results.h5' + raw
-    simulatedPerformanceFile = githubURL + 'simulatedPerformance.h5' + raw
-    simulatedPerformanceStatsFile = githubURL + 'simulatedPerformanceStats.h5' + raw
+    distFitsFile = githubURL + 'results.h5' + raw
+    simPerformFile = githubURL + 'simulatedPerformance.h5' + raw
+    simPercentileFile = githubURL + 'simulatedPerformanceStats.h5' + raw
+    simPercentileYearlyFile = githubURL + 'simPercentileYearly.h5' + raw
     marketReturnsFile = githubURL + 'marketReturns.h5' + raw
 
-    print(resultsDfFile + '\n' + simulatedPerformanceFile +
-          '\n' + simulatedPerformanceStatsFile + '\n' + marketReturnsFile)
+    print(distFitsFile + '\n' + simPerformFile +
+          '\n' + simPercentileFile + '\n' + marketReturnsFile)
 
     # Import data
-    r = requests.get(resultsDfFile, allow_redirects=True)
+    r = requests.get(distFitsFile, allow_redirects=True)
     open('resultsDf_github.h5', 'wb').write(r.content)
-    resultsDf = pd.read_hdf('resultsDf_github.h5', 'results')
+    distFits = pd.read_hdf('resultsDf_github.h5', 'results')
 
-    r = requests.get(simulatedPerformanceFile, allow_redirects=True)
+    r = requests.get(simPerformFile, allow_redirects=True)
     open('simulatedPerformance_github.h5', 'wb').write(r.content)
-    simulatedPerformance = pd.read_hdf('simulatedPerformance_github.h5',
-                                       'simulatedPerformance')
+    simPerform = pd.read_hdf('simulatedPerformance_github.h5',
+                             'simulatedPerformance')
 
-    r = requests.get(simulatedPerformanceStatsFile, allow_redirects=True)
+    r = requests.get(simPercentileFile, allow_redirects=True)
     open('simulatedPerformanceStats_github.h5', 'wb').write(r.content)
-    simulatedPerformanceStats = pd.read_hdf(
+    simPercentile = pd.read_hdf(
         'simulatedPerformanceStats_github.h5', 'simulatedPerformanceStats')
+
+    r = requests.get(simPercentileYearlyFile, allow_redirects=True)
+    open('simPercentileYearly_github.h5', 'wb').write(r.content)
+    simPercentileYearly = pd.read_hdf(
+        'simPercentileYearly_github.h5', 'simPercentileYearly')
 
     r = requests.get(marketReturnsFile, allow_redirects=True)
     open('marketReturns_github.h5', 'wb').write(r.content)
     marketReturns = pd.read_hdf(
         'marketReturns_github.h5', 'marketReturns')
 
-    return resultsDf, simulatedPerformance, simulatedPerformanceStats, marketReturns
+    return distFits, simPerform, simPercentile, simPercentileYearly, marketReturns
 
 
-resultsDf, simulatedPerformance, simulatedPerformanceStats, marketReturns = import_from_github()
-# print(resultsDf.head(5))
+distFits, simPerform, simPercentile, simPercentileYearly, marketReturns = import_from_github(
+    githubURL)
+
 # %% Sidebar Inputs
 age = st.sidebar.number_input(
     'Current Age', min_value=18, max_value=70, value=30, step=1)
@@ -90,6 +103,17 @@ SWR = st.sidebar.number_input(
 #     step=0.25, format='%.1f') / 100
 RoR = marketReturns['Net Returns'].median()
 
+returnRange = st.sidebar.slider(
+    'Return Bounds (Percentile)',
+    min_value=1, max_value=99,
+    value=[25, 75], step=1)
+
+# simPercentileYearly[0:1] = 0
+medianReturn = simPercentileYearly['50 Percentile'].divide(100)
+upperReturn = simPercentileYearly[str(
+    int(returnRange[1])) + ' Percentile'].divide(100)
+lowerReturn = simPercentileYearly[str(
+    int(returnRange[0])) + ' Percentile'].divide(100)
 
 # %% Calculations
 
@@ -124,41 +148,113 @@ def growth(currentSavings, yearsAway, RoR, yearlySavings):
         DESCRIPTION.
 
     """
-    principalGrowth = [currentSavings * (1 + RoR) ** x for x in yearsAway]
+    if type(RoR) == float:
+        principalGrowth = [currentSavings * (1 + RoR) ** x for x in yearsAway]
 
-    savingsGrowth = [yearlySavings *
-                     ((1 + RoR) ** x - 1) / RoR for x in yearsAway]
+        savingsGrowth = [yearlySavings *
+                         ((1 + RoR) ** x - 1) / RoR for x in yearsAway]
 
-    FV = [sum(i) for i in zip(principalGrowth, savingsGrowth)]
+        FV = [sum(i) for i in zip(principalGrowth, savingsGrowth)]
 
-    totalGrowth = [FV[i] - (i+1)*yearlySavings -
-                   currentSavings for i, x in enumerate(FV)]
+        totalGrowth = [FV[i] - (i+1)*yearlySavings -
+                       currentSavings for i, x in enumerate(FV)]
+
+    elif type(RoR) == pd.core.series.Series:
+        # RoR[0] = 0
+        principalGrowth = [currentSavings *
+                           (1 + RoR[x]) ** x for x in yearsAway]
+        savingsGrowth = [yearlySavings *
+                         ((1 + RoR[x]) ** x - 1) / RoR[x] for x in yearsAway]
+
+        FV = [sum(i) for i in zip(principalGrowth, savingsGrowth)]
+
+        totalGrowth = [FV[i] - (i+1)*yearlySavings -
+                       currentSavings for i, x in enumerate(FV)]
+
+    else:
+        errorMsg = 'Unknown Rate of return'
+        print(errorMsg)
+        st.write(errorMsg)
 
     return FV, totalGrowth
 
 
-def milestone_achievement(RoR, currentSavings, yearlySavings, milestoneGoal):
-
-    years2goal = math.log((milestoneGoal + yearlySavings / RoR) /
-                          (currentSavings + yearlySavings / RoR)) / \
-        math.log(1 + RoR)
+def milestone_calc(RoR, currentSavings, yearlySavings, milestoneGoal):
+    if type(RoR) is float:
+        years2goal = math.log((milestoneGoal + yearlySavings / RoR) /
+                              (currentSavings + yearlySavings / RoR)) / \
+            math.log(1 + RoR)
+    else:
+        print('Wrong milestone function: ' + str(type(RoR)))
+        years2goal = 0
 
     return years2goal
 
 
+def milestone_interp(yearlyValues, yearList, milestoneGoal):
+    if type(yearlyValues) is list:
+        # print(yearlyValues)
+        overshootValue = list(
+            filter(lambda k: k > milestoneGoal, yearlyValues))
+        # print('past goal: ' + str(overshootValue))
+        overshootValue = overshootValue[0]
+        # print('past goal: ' + str(overshootValue))
+        overshotYear = yearlyValues.index(overshootValue)
+        # print('goal index: ' + str(overshotYear))
+        years2goal = yearList[overshotYear]
+    else:
+        print('Wrong milestone function: ' + str(type(yearlyValues)))
+        years2goal = 0
+
+    return years2goal
+
+# # Assumed RoR
+# minFV, minTotalGrowth = growth(
+#     currentSavings, yearsAway, RoR - 0.02, yearlySavings)
+# maxFV, maxTotalGrowth = growth(
+#     currentSavings, yearsAway, RoR + 0.02, yearlySavings)
+# FV, totalGrowth = growth(currentSavings, yearsAway, RoR, yearlySavings)
+
+# achieveRE = []
+# achieveRE.append(milestone_achievement(
+#     RoR, currentSavings, yearlySavings, retirementGoal) + age)
+# achieveRE.append(milestone_achievement(
+#     RoR - 0.02, currentSavings, yearlySavings, retirementGoal) + age)
+# achieveRE.append(milestone_achievement(
+#     RoR + 0.02, currentSavings, yearlySavings, retirementGoal) + age)
+
+
+# Sim RoR
+print('Running lower growth')
 minFV, minTotalGrowth = growth(
-    currentSavings, yearsAway, RoR - 0.02, yearlySavings)
+    currentSavings, yearsAway, lowerReturn, yearlySavings)
+# print(minFV)
+print('Running upper growth')
 maxFV, maxTotalGrowth = growth(
-    currentSavings, yearsAway, RoR + 0.02, yearlySavings)
-FV, totalGrowth = growth(currentSavings, yearsAway, RoR, yearlySavings)
+    currentSavings, yearsAway, upperReturn, yearlySavings)
+# print(maxFV)
+print('Running median growth')
+FV, totalGrowth = growth(
+    currentSavings, yearsAway, medianReturn, yearlySavings)
+# print(FV)
 
 achieveRE = []
-achieveRE.append(milestone_achievement(
-    RoR, currentSavings, yearlySavings, retirementGoal) + age)
-achieveRE.append(milestone_achievement(
-    RoR - 0.02, currentSavings, yearlySavings, retirementGoal) + age)
-achieveRE.append(milestone_achievement(
-    RoR + 0.02, currentSavings, yearlySavings, retirementGoal) + age)
+# achieveRE.append(milestone_calc(
+#     medianReturn, currentSavings, yearlySavings, retirementGoal) + age)
+# achieveRE.append(milestone_calc(
+#     lowerReturn, currentSavings, yearlySavings, retirementGoal) + age)
+# achieveRE.append(milestone_calc(
+#     upperReturn, currentSavings, yearlySavings, retirementGoal) + age)
+
+achieveRE.append(milestone_interp(
+    FV, yearsAway, retirementGoal) + age)
+achieveRE.append(milestone_interp(
+    minFV, yearsAway, retirementGoal) + age)
+achieveRE.append(milestone_interp(
+    maxFV, yearsAway, retirementGoal) + age)
+
+print('achieveRE: ' + str(achieveRE))
+
 
 # %% Plot Investment Growth and FIRE Milestones
 fig, ax = plt.subplots(2, sharex=True)
@@ -194,6 +290,7 @@ ax[0].annotate(
     ha='center')  # horizontal alignment can be left, right or center
 
 ax[0].set_xlim([age, achieveRE[1] + 5])
+# ax[0].set_xlim([age, 60])
 ax[0].set_ylim([0, retirementGoal * 2])
 ax[0].yaxis.set_major_formatter('${x:1.0f}')
 # ax[0].legend()
@@ -222,8 +319,8 @@ st.pyplot(fig)
 st.subheader('Description')
 st.text('Yearly Savings = Salary * Savings Rate' + '\n' +
         'Net Income = Salary - Yearly Savings' + '\n' +
-        'Retirement Goal = Net Income / SWR' + '\n' +
-        '\n' +
-        'Error range on plots is +/-2% of median RoR')
-# 'Error range on plots is 5th-95th Percentile of Simulated Returns')
-st.markdown("![Market Returns](https://raw.githubusercontent.com/sckilcoyne/FIRE/f8969ea9bc17dc007accf02aba3134d756c91db4/Outputs/Market%20Returns.png)")
+        'Retirement Goal = Net Income / SWR' + '\n')
+
+githubRepo = 'https://raw.githubusercontent.com/sckilcoyne/FIRE/'
+githubURL = githubRepo + githubBranch + githubFolder
+st.markdown('![Market Returns](' + githubURL + 'Market%20Returns.png)')
