@@ -161,10 +161,16 @@ def growth(currentSavings, yearsAway, RoR, yearlySavings):
 
     elif type(RoR) == pd.core.series.Series:
         # RoR[0] = 0
-        principalGrowth = [currentSavings *
-                           (1 + RoR[x]) ** x for x in yearsAway]
-        savingsGrowth = [yearlySavings *
-                         ((1 + RoR[x]) ** x - 1) / RoR[x] for x in yearsAway]
+        principalGrowth = []
+        savingsGrowth = []
+        for x in yearsAway:
+            if x == 0:
+                principalGrowth.append(currentSavings)
+                savingsGrowth.append(yearlySavings)
+            else:
+                principalGrowth.append(principalGrowth[x-1] * (1 + RoR[x]))
+                savingsGrowth.append(
+                    yearlySavings + savingsGrowth[x-1] * (1 + RoR[x]))
 
         FV = [sum(i) for i in zip(principalGrowth, savingsGrowth)]
 
@@ -197,7 +203,12 @@ def milestone_interp(yearlyValues, yearList, milestoneGoal):
         overshootValue = list(
             filter(lambda k: k > milestoneGoal, yearlyValues))
         # print('past goal: ' + str(overshootValue))
-        overshootValue = overshootValue[0]
+        try:
+            overshootValue = overshootValue[0]
+        except IndexError:
+            overshootValue = yearlyValues[-1]
+            print('Does not reach goal!')
+
         # print('past goal: ' + str(overshootValue))
         overshotYear = yearlyValues.index(overshootValue)
         # print('goal index: ' + str(overshotYear))
