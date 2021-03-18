@@ -9,7 +9,7 @@ Created on Sat Feb 27 17:32:25 2021
 # import git
 import streamlit as st
 import matplotlib.pyplot as plt
-import numpy as np
+# import numpy as np
 import math
 import pandas as pd
 import requests
@@ -29,8 +29,7 @@ st.title('FIRE Milestone Calculator')
 githubRepo = 'https://github.com/sckilcoyne/FIRE/'
 # githubBranch = git.Repo(
 #     search_parent_directories=True).active_branch.name + '/'
-# githubBranch = 'main' + '/'
-githubBranch = 'sim-error-bars' + '/'
+githubBranch = 'main' + '/'
 githubFolder = 'Outputs/'
 githubURL = githubRepo + 'blob/' + githubBranch + githubFolder
 

@@ -12,7 +12,7 @@ import numpy as np
 from scipy import stats
 import matplotlib.pyplot as plt
 
-import ForcePickle
+from ForcePickle import pickle_protocol
 import pandas as pd
 
 # %% Parameters
@@ -356,18 +356,20 @@ set_shared_xlabel([ax2, ax3], 'Years of Compounding Growth')
 # %% Save Analysis for App Usage
 fig.savefig('Outputs/Market Returns.png')
 
-marketReturns.to_hdf('Outputs/marketReturns.h5',
-                     key='marketReturns', mode='w')
-resultsDf.to_hdf('Outputs/results.h5',
-                 key='results', mode='w')
-simulatedPerformance.to_hdf('Outputs/simulatedPerformance.h5',
-                            key='simulatedPerformance', mode='w')
-simulatedPerformanceStats.to_hdf('Outputs/simulatedPerformanceStats.h5',
-                                 key='simulatedPerformanceStats', mode='w')
-simPercentileYearly.to_hdf('Outputs/simPercentileYearly.h5',
-                           key='simPercentileYearly', mode='w')
-goodFits.to_hdf('Outputs/goodFits.h5',
-                key='goodFits', mode='w')
+with pickle_protocol(2):
+
+    marketReturns.to_hdf('Outputs/marketReturns.h5',
+                         key='marketReturns', mode='w')
+    resultsDf.to_hdf('Outputs/results.h5',
+                     key='results', mode='w')
+    simulatedPerformance.to_hdf('Outputs/simulatedPerformance.h5',
+                                key='simulatedPerformance', mode='w')
+    simulatedPerformanceStats.to_hdf('Outputs/simulatedPerformanceStats.h5',
+                                     key='simulatedPerformanceStats', mode='w')
+    simPercentileYearly.to_hdf('Outputs/simPercentileYearly.h5',
+                               key='simPercentileYearly', mode='w')
+    goodFits.to_hdf('Outputs/goodFits.h5',
+                    key='goodFits', mode='w')
 
 
 # %% Testing

@@ -1,9 +1,7 @@
-streamlit==0.78.0
-matplotlib==3.3.2
-numpy==1.19.2
+matplotlib==3.3.4
 tables==3.6.1
-scipy==1.6.0
+numpy==1.19.2
+pandas==1.2.3
 requests==2.25.1
-pandas==1.2.1
-statsmodels==0.12.1
-pickle5==0.0.11
+streamlit==0.78.0
+scipy==1.6.1
