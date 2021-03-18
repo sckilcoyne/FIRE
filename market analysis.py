@@ -10,14 +10,15 @@ import warnings
 
 import numpy as np
 from scipy import stats
-# import pylab
-# import statsmodels.api as sm
 import matplotlib.pyplot as plt
 
-import pickle
-# https://stackoverflow.com/questions/60067953/is-it-possible-to-specify-the-pickle-protocol-when-writing-pandas-to-hdf5
-pickle.HIGHEST_PROTOCOL = 2
+import ForcePickle
 import pandas as pd
+
+# %% Parameters
+goodFitThresh = 0.95  # How good should a distribution be to used in sims
+simYears = 100  # Number of years to generate random data for
+N = 1000  # Number of randomized timeseries per distribution
 
 # %% Import Data
 # sp500 = pd.read_csv('Data/SlickCharts SP500 History.csv',
@@ -37,10 +38,88 @@ import pandas as pd
 shiller = pd.read_excel('Data/Shiller Yearly Market Data.xlsx',
                         sheet_name='Data', header=7, index_col=0)
 
-returns = pd.DataFrame()
-returns['Net Returns'] = shiller['Unnamed: 16']
-returns.dropna(inplace=True)
-returns['Net Returns 100'] = returns['Net Returns'].multiply(100)
+marketReturns = pd.DataFrame()
+marketReturns['Net Returns'] = shiller['Unnamed: 16']
+marketReturns.dropna(inplace=True)
+marketReturns['Net Returns 100'] = marketReturns['Net Returns'].multiply(100)
+
+# %% Functions
+
+
+def yearly2cumalitive(yearlyCol):
+    """
+    Convert yearly performance to cumalative timeseries performance.
+
+    yearlyCol: Timeseries list of fractional percentages
+    """
+    yearlyCol = yearlyCol.to_numpy()
+
+    cumalitiveCol = np.empty([0, 1])
+    for idx, x in enumerate(yearlyCol):
+        if idx == 0:
+            cumalitiveCol = np.append(cumalitiveCol, yearlyCol[0])
+        else:
+            cumalitiveResult = cumalitiveCol[idx-1] + \
+                yearlyCol[idx] * cumalitiveCol[idx-1]
+            cumalitiveCol = np.append(cumalitiveCol, cumalitiveResult)
+
+    return cumalitiveCol
+
+
+def cumalitive2yearly(cumalitiveCol):
+    """
+    Convert cumalative timeseries performance to yearly performance.
+    """
+    cumalitiveCol = cumalitiveCol.to_numpy()
+
+    yearlyCol = np.empty([0, 1])
+    for idx, x in enumerate(cumalitiveCol):
+        if idx == 0:
+            yearlyCol = np.append(yearlyCol, cumalitiveCol[0])
+        else:
+            yearlyResult = cumalitiveCol[idx] / cumalitiveCol[idx-1] - 1
+            yearlyCol = np.append(yearlyCol, yearlyResult)
+
+    return yearlyCol
+
+
+def set_shared_xlabel(a, xlabel, labelpad=0.01):
+    """
+    Set a x label shared by multiple axes.
+
+    https://stackoverflow.com/questions/6963035/pyplot-axes-labels-for-subplots
+
+    Parameters
+    ----------
+    a: list of axes
+    xlabel: string
+    labelpad: float
+        Sets the padding between ticklabels and axis label
+    """
+    f = a[0].get_figure()
+    f.canvas.draw()  # sets f.canvas.renderer needed below
+
+    # get the center position for all plots
+    right = a[0].get_position().x1
+    left = a[-1].get_position().x0
+
+    # get the coordinates of the left side of the tick labels
+    y0 = 1
+    for at in a:
+        at.set_xlabel('')  # prevent multiple labels
+        bboxes, _ = at.xaxis.get_ticklabel_extents(f.canvas.renderer)
+        bboxes = bboxes.transformed(f.transFigure.inverted())
+        yt = bboxes.y0
+        if yt < y0:
+            y0 = yt
+    tick_label_up = y0
+
+    # set position of label
+    a[-1].set_xlabel(xlabel)
+    a[-1].xaxis.set_label_coords((right + left)/2,
+                                 tick_label_up - labelpad,
+                                 transform=f.transFigure)
+
 
 # %% Distribution Determinination
 # https://medium.com/@amirarsalan.rajabi/distribution-fitting-with-python-scipy-bb70a42c0aed
@@ -77,180 +156,199 @@ with warnings.catch_warnings():
     for i in list_of_dists:
         print(i)
         dist = getattr(stats, i)
-        param = dist.fit(returns['Net Returns'])
-        a = stats.kstest(returns['Net Returns'], i, args=param)
-        # results.append((i, a[0], a[1]))
+        param = dist.fit(marketReturns['Net Returns'])
+        a = stats.kstest(marketReturns['Net Returns'], i, args=param)
         newRow = pd.Series([i, a[0], a[1]], index=resultsDf.columns)
         resultsDf = resultsDf.append(newRow, ignore_index=True)
 
-
-# results.sort(key=lambda x: float(x[2]), reverse=True)
-# resultsTop = results[:5]
-# for j in resultsTop:
-#     print("{}: statistic={}, pvalue={}".format(j[0], j[1], j[2]))
-
 resultsDf.sort_values('p-value', ascending=False,
                       inplace=True, na_position='last')
-print(resultsDf.head(5))
 
 
-# %% Create Random Data with Best Distribution
-# bestDistName = results[0][0]
-bestDistName = resultsDf['Distribution'].iloc[0]
-bestDist = getattr(stats, bestDistName)
-bestDistParams = bestDist.fit(returns['Net Returns'])
-
-randomData = pd.DataFrame()
-simYears = 100
-N = 1000
-
-for i in range(N):
-    randomData[i] = [1] + bestDist.rvs(
-        bestDistParams[0], bestDistParams[1], loc=bestDistParams[2],
-        scale=bestDistParams[3], size=simYears).tolist()
+goodFits = resultsDf[resultsDf['p-value'] > goodFitThresh]
+print(goodFits)
 
 
-def yearly2cumalitive(yearlyCol):
-    # print(type(yearlyCol))
-    yearlyCol = yearlyCol.to_numpy()
-    # print(type(yearlyCol))
-    # print(yearlyCol)
+# %% Create Random Data with Good Distribution(s)
 
-    cumalitiveCol = np.empty([0, 1])
-    # print(cumalitiveCol)
-    for idx, x in enumerate(yearlyCol):
-        # print(idx, yearlyCol[idx])
-        if idx == 0:
-            cumalitiveCol = np.append(cumalitiveCol, yearlyCol[0])
-            # print(cumalitiveCol)
-            # print(cumalitiveCol[0])
-        else:
-            cumalitiveResult = cumalitiveCol[idx-1] + \
-                yearlyCol[idx] * cumalitiveCol[idx-1]
-            # print(cumalitiveResult)
-            cumalitiveCol = np.append(cumalitiveCol, cumalitiveResult)
+# Generate [N] time series of length [simYears] of randomly generated yearly
+# market performance for each distribution determined to be a good fit to the
+# historical data
+simulatedReturns = pd.DataFrame()
+for distName in goodFits['Distribution']:
+    # print(distName)
+    distFunc = getattr(stats, distName)
+    distParams = distFunc.fit(marketReturns['Net Returns'])
 
-    return cumalitiveCol
+    for i in range(N):
+        iterName = distName + str(i)
+        simulatedReturns[iterName] = [1] + \
+            distFunc.rvs(*distParams[:-2],
+                         loc=distParams[-2], scale=distParams[-1],
+                         size=simYears).tolist()
 
-
-randomGrowth = randomData.apply(yearly2cumalitive, axis=0)
+# Convert yearly returns to net performance for each time series
+simulatedPerformance = simulatedReturns.apply(yearly2cumalitive, axis=0)
 
 # Convert from fractional to percentage
-randomData = randomData.multiply(100)
-randomGrowth = randomGrowth.multiply(100)
+simulatedReturns = simulatedReturns.multiply(100)
+simulatedPerformance = simulatedPerformance.multiply(100)
 
-rowMedian = randomGrowth.median(axis=1)
-rowPercentileHigh = randomGrowth.quantile(0.95, axis=1)
-rowPercentileLow = randomGrowth.quantile(0.05, axis=1)
+# Find each whole percentile of performance along the time series
+simulatedPerformanceStats = pd.DataFrame()
+for i in np.linspace(0.01, 0.99, 99):
+    percentile = str(int(i * 100)) + ' Percentile'
+    simulatedPerformanceStats[percentile] = simulatedPerformance.quantile(
+        i, axis=1)
 
-randomGrowthStats = pd.DataFrame()
-randomGrowthStats['Median'] = rowMedian
-randomGrowthStats['Percentile 95th'] = rowPercentileHigh
-randomGrowthStats['Percentile 5th'] = rowPercentileLow
+simPercentileYearly = simulatedPerformanceStats.divide(100)
+simPercentileYearly = simPercentileYearly.apply(
+    cumalitive2yearly, axis=0)
+simPercentileYearly = simPercentileYearly.multiply(100)
+
 
 # %% Analysis Plot
-
-
-def set_shared_xlabel(a, xlabel, labelpad=0.01):
-    """
-    Set a x label shared by multiple axes.
-
-    https://stackoverflow.com/questions/6963035/pyplot-axes-labels-for-subplots
-
-    Parameters
-    ----------
-    a: list of axes
-    xlabel: string
-    labelpad: float
-        Sets the padding between ticklabels and axis label
-    """
-    f = a[0].get_figure()
-    f.canvas.draw()  # sets f.canvas.renderer needed below
-
-    # get the center position for all plots
-    right = a[0].get_position().x1
-    left = a[-1].get_position().x0
-
-    # get the coordinates of the left side of the tick labels
-    y0 = 1
-    for at in a:
-        # just to make sure we don't and up with multiple labels
-        at.set_xlabel('')
-        bboxes, _ = at.xaxis.get_ticklabel_extents(f.canvas.renderer)
-        # bboxes = bboxes.inverse_transformed(f.transFigure)
-        bboxes = bboxes.transformed(f.transFigure.inverted())
-        yt = bboxes.y0
-        if yt < y0:
-            y0 = yt
-    tick_label_up = y0
-
-    # set position of label
-    a[-1].set_xlabel(xlabel)
-    a[-1].xaxis.set_label_coords((right + left)/2,
-                                 tick_label_up - labelpad,
-                                 transform=f.transFigure)
-
-
-fig, axs = plt.subplots(figsize=(15, 8))
+fig, axs = plt.subplots(figsize=(15, 10))
 fig.suptitle('Market Returns \n Historical and Simulated')
 
-# Returns Distribution
+# -----Historical Returns-----
+# Returns Distribution Histogram
 ax1 = plt.subplot(2, 2, (1, 2))
-ax1.hist(returns['Net Returns 100'], density=True,
+ax1.hist(marketReturns['Net Returns 100'], density=True,
          bins=20, label='Net Returns', alpha=0.5)
 
-medianReturn = returns['Net Returns 100'].median()
+# Median Return
+medianReturn = marketReturns['Net Returns 100'].median()
 ax1.axvline(medianReturn, label='Meadin Return',
-            linestyle='--', linewidth=2, color='r')
+            linestyle='--', linewidth=2, color='k')
 ax1.annotate(
     str(round(medianReturn, 1)) + '%',  # annotation text
     (medianReturn, 0),  # this is the point to label
     textcoords="offset points",  # how to position the text
     xytext=(3, 2),  # distance from text to points (x,y)
-    color='r', size='large', weight='demi',
+    color='k', size='large', weight='demi',
     ha='left')  # horizontal alignment can be left, right or center
 
-x = np.linspace(bestDist.ppf(0.01, bestDistParams[0], bestDistParams[1],
-                             loc=bestDistParams[2] * 100,
-                             scale=bestDistParams[3] * 100),
-                bestDist.ppf(0.99, bestDistParams[0], bestDistParams[1],
-                             loc=bestDistParams[2] * 100,
-                             scale=bestDistParams[3] * 100),
-                100)
+# Best Continuous distributions
+for distName in goodFits['Distribution']:
+    # print(distName)
+    distFunc = getattr(stats, distName)
+    distParams = distFunc.fit(marketReturns['Net Returns'])
+    startDistLine = distFunc.ppf(0.01, *distParams[:-2],
+                                 loc=distParams[-2] * 100,
+                                 scale=distParams[-1] * 100)
+    endDistLine = distFunc.ppf(0.99, *distParams[:-2],
+                               loc=distParams[-2] * 100,
+                               scale=distParams[-1] * 100)
+    x = np.linspace(startDistLine, endDistLine, 100)
 
-rv = bestDist(bestDistParams[0], bestDistParams[1],
-              loc=bestDistParams[2] * 100, scale=bestDistParams[3] * 100)
-distLabel = bestDistName + ' pdf: ' + \
-    str(round(resultsDf['p-value'].iloc[0], 4))
-ax1.plot(x, rv.pdf(x), 'k-', lw=2, label=distLabel)
+    rv = distFunc(*distParams[:-2],
+                  loc=distParams[-2] * 100,
+                  scale=distParams[-1] * 100)
+
+    distLabel = distName + ' pdf: ' + \
+        str(round(resultsDf['p-value'].iloc[0], 4))
+    ax1.plot(x, rv.pdf(x), '-', lw=2, label=distLabel)
+
+# Return distribution plot formatting
 ax1.legend()
 ax1.xaxis.set_major_formatter('{x:1.0f}%')
-yearFirst = returns.head(1).index.item()
-yearLast = returns.tail(1).index.item()
+yearFirst = marketReturns.head(1).index.item()
+yearLast = marketReturns.tail(1).index.item()
 ax1.set_xlabel('Historical Market Returns (' +
                str(int(yearFirst)) + '-' + str(int(yearLast)) + ')')
 
-# Compounding Growth Over Time
+# -----Compounding Growth Over Time-----
 yearSwitchOver = 30
+plottedPercentile = [5, 20, 50, 80, 95]
 
+# Match naming scheme
+plottedPercentile = [
+    str(int(per)) + ' Percentile' for per in plottedPercentile]
+
+# Only plot desired percentiles
+plotSimmedStats = simulatedPerformanceStats[plottedPercentile]
+
+# Prep heatmap
+data = simulatedPerformance.stack().droplevel(level=1)
+
+# Linear plot limits
+xLinMin = 0
+xLinMax = yearSwitchOver
+yLinMin = 0
+yLinMax = simulatedPerformanceStats['50 Percentile'][yearSwitchOver] * 1.5
+
+# Set up desity grid - linear
+xbinsLin = xLinMax - xLinMin + 1
+ybinsLin = int((yLinMax - yLinMin) / 10)
+xGridLin = np.linspace(xLinMin, xLinMax, xbinsLin)
+yGridLin = np.linspace(yLinMin, yLinMax, ybinsLin)
+xLin, yLin = np.meshgrid(xGridLin, yGridLin)
+
+# Get density map - linear
+y = data.iloc[(data.index <= xLinMax) &
+              (data.values <= yLinMax)]
+x = y.index.values
+k = stats.gaussian_kde(np.vstack([x, y]))
+zLin = k(np.vstack([xLin.flatten(), yLin.flatten()]))
+
+# Log Plot limits
+xLogMin = yearSwitchOver
+xLogMax = simYears
+yLogMin = 50
+yLogMax = simulatedPerformanceStats['95 Percentile'].max() * 1.2
+
+# # Set up desity grid - log
+# xbinsLog = xLogMax - xLogMin + 1
+# # ybinsLog = int((yLogMax - yLogMin) / 100)
+# ybinsLog = 500
+# xGridLog = np.linspace(xLogMin, xLogMax, xbinsLog)
+# # yGridLog = np.linspace(yLogMin, yLogMax, ybinsLog)
+# yGridLog = np.geomspace(yLogMin, yLogMax, ybinsLog)
+# xLog, yLog = np.meshgrid(xGridLog, yGridLog)
+
+# # Get density map - log
+# y = data.iloc[(data.index >= xLogMin) &
+#               (data.values >= yLogMin) &
+#               (data.values <= yLogMax)]
+# x = y.index.values
+# k = stats.gaussian_kde(np.vstack([x, y]))
+# zLog = k(np.vstack([xLog.flatten(), yLog.flatten()]))
+
+
+# Plot simulated data on two subplots for short term and long term display
 ax2 = plt.subplot(2, 2, 3)  # Linear axes for early growth
-randomGrowth.plot(legend=False, color='grey', alpha=0.01, ax=ax2)
-randomGrowthStats.plot(ax=ax2, legend=False)
-ax2.set_ylim([.1, randomGrowthStats['Median'][yearSwitchOver] * 1.5])
-ax2.set_xlim([0, yearSwitchOver])
+ax3 = plt.subplot(2, 2, 4)  # Log axis for long-term growth
+
+# Plot density map
+ax2.pcolormesh(xLin, yLin, np.power(zLin.reshape(xLin.shape), 0.5),
+               shading='gouraud', cmap='Greys')
+# ax3.pcolormesh(xLog, yLog, np.power(zLog.reshape(xLog.shape), 0.3),
+#                shading='gouraud', cmap='Greys')
+
+for ax in [ax2, ax3]:
+    # simulatedPerformance.plot(
+    #     legend=False, color='gainsboro', alpha=0.01, ax=ax)
+    plotSimmedStats.plot(ax=ax)
+
+# Format Linear Plot
+ax2.set_ylim([yLinMin, yLinMax])
+ax2.set_xlim([xLinMin, xLinMax])
 ax2.set_ylabel('Initial Value')
 ax2.yaxis.set_major_formatter('{x:1.0f}%')
+# ax2.get_legend().remove()  # Legend only on one plot
 
-ax3 = plt.subplot(2, 2, 4)  # Log axis for long-term growth
-randomGrowth.plot(legend=False, color='grey', alpha=0.01, ax=ax3)
-randomGrowthStats.plot(ax=ax3)
+# Format Log Plot
 ax3.set_yscale('log')
-ax3.set_ylim([50, randomGrowthStats['Percentile 95th'].max() * 1.2])
-ax3.set_xlim([yearSwitchOver, randomGrowthStats.tail(1).index.item()])
+ax3.set_ylim([yLogMin, yLogMax])
+ax3.set_xlim([xLogMin, xLogMax])
 ax3.yaxis.set_major_formatter('{x:1.0f}%')
 ax3.yaxis.tick_right()
 ax3.set_xlabel('placeholder for tight layout')
+ax3.get_legend().remove()  # Legend only on one plot
 
+
+# Overall figure formatting
 fig.tight_layout()
 set_shared_xlabel([ax2, ax3], 'Years of Compounding Growth')
 
@@ -258,8 +356,18 @@ set_shared_xlabel([ax2, ax3], 'Years of Compounding Growth')
 # %% Save Analysis for App Usage
 fig.savefig('Outputs/Market Returns.png')
 
-returns.to_hdf('Outputs/returns.h5', key='returns', mode='w')
-resultsDf.to_hdf('Outputs/results.h5', key='results', mode='w')
-randomGrowth.to_hdf('Outputs/randomGrowth.h5', key='randomGrowth', mode='w')
-randomGrowthStats.to_hdf('Outputs/randomGrowthStats.h5',
-                         key='randomGrowthStats', mode='w')
+marketReturns.to_hdf('Outputs/marketReturns.h5',
+                     key='marketReturns', mode='w')
+resultsDf.to_hdf('Outputs/results.h5',
+                 key='results', mode='w')
+simulatedPerformance.to_hdf('Outputs/simulatedPerformance.h5',
+                            key='simulatedPerformance', mode='w')
+simulatedPerformanceStats.to_hdf('Outputs/simulatedPerformanceStats.h5',
+                                 key='simulatedPerformanceStats', mode='w')
+simPercentileYearly.to_hdf('Outputs/simPercentileYearly.h5',
+                           key='simPercentileYearly', mode='w')
+goodFits.to_hdf('Outputs/goodFits.h5',
+                key='goodFits', mode='w')
+
+
+# %% Testing
