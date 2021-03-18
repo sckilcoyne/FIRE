@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import math
 import pandas as pd
 import requests
+import os
 
 # Extras for requirements
 import tables
@@ -38,7 +39,7 @@ githubURL = githubRepo + 'blob/' + githubBranch + githubFolder
 def import_from_github(githubURL):
 
     raw = '?raw=true'
-    temp = '/tmp/'
+    temp = 'tmp'  # https://discuss.streamlit.io/t/file-permisson-error-on-streamlit-sharing/8291/5
 
     distFitsFile = githubURL + 'results.h5' + raw
     simPerformFile = githubURL + 'simulatedPerformance.h5' + raw
@@ -51,28 +52,29 @@ def import_from_github(githubURL):
 
     # Import data
     r = requests.get(distFitsFile, allow_redirects=True)
-    open(temp + 'resultsDf_github.h5', 'wb').write(r.content)
-    distFits = pd.read_hdf('resultsDf_github.h5', 'results')
+    tempFile = os.path.join(temp, 'resultsDf_github.h5')
+    open(tempFile, 'wb').write(r.content)
+    distFits = pd.read_hdf(tempFile, 'results')
 
     r = requests.get(simPerformFile, allow_redirects=True)
-    open(temp + 'simulatedPerformance_github.h5', 'wb').write(r.content)
-    simPerform = pd.read_hdf('simulatedPerformance_github.h5',
-                             'simulatedPerformance')
+    tempFile = os.path.join(temp, 'simulatedPerformance_github.h5')
+    open(tempFile, 'wb').write(r.content)
+    simPerform = pd.read_hdf(tempFile, 'simulatedPerformance')
 
     r = requests.get(simPercentileFile, allow_redirects=True)
-    open(temp + 'simulatedPerformanceStats_github.h5', 'wb').write(r.content)
-    simPercentile = pd.read_hdf(
-        'simulatedPerformanceStats_github.h5', 'simulatedPerformanceStats')
+    tempFile = os.path.join(temp, 'simulatedPerformanceStats_github.h5')
+    open(tempFile, 'wb').write(r.content)
+    simPercentile = pd.read_hdf(tempFile, 'simulatedPerformanceStats')
 
     r = requests.get(simPercentileYearlyFile, allow_redirects=True)
-    open(temp + 'simPercentileYearly_github.h5', 'wb').write(r.content)
-    simPercentileYearly = pd.read_hdf(
-        'simPercentileYearly_github.h5', 'simPercentileYearly')
+    tempFile = os.path.join(temp, 'simPercentileYearly_github.h5')
+    open(tempFile, 'wb').write(r.content)
+    simPercentileYearly = pd.read_hdf(tempFile, 'simPercentileYearly')
 
     r = requests.get(marketReturnsFile, allow_redirects=True)
-    open(temp + 'marketReturns_github.h5', 'wb').write(r.content)
-    marketReturns = pd.read_hdf(
-        'marketReturns_github.h5', 'marketReturns')
+    tempFile = os.path.join(temp, 'marketReturns_github.h5')
+    open(tempFile, 'wb').write(r.content)
+    marketReturns = pd.read_hdf(tempFile, 'marketReturns')
 
     return distFits, simPerform, simPercentile, simPercentileYearly, marketReturns
 
