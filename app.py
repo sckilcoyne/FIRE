@@ -38,6 +38,7 @@ githubURL = githubRepo + 'blob/' + githubBranch + githubFolder
 def import_from_github(githubURL):
 
     raw = '?raw=true'
+    temp = '/tmp/'
 
     distFitsFile = githubURL + 'results.h5' + raw
     simPerformFile = githubURL + 'simulatedPerformance.h5' + raw
@@ -50,26 +51,26 @@ def import_from_github(githubURL):
 
     # Import data
     r = requests.get(distFitsFile, allow_redirects=True)
-    open('resultsDf_github.h5', 'wb').write(r.content)
+    open(temp + 'resultsDf_github.h5', 'wb').write(r.content)
     distFits = pd.read_hdf('resultsDf_github.h5', 'results')
 
     r = requests.get(simPerformFile, allow_redirects=True)
-    open('simulatedPerformance_github.h5', 'wb').write(r.content)
+    open(temp + 'simulatedPerformance_github.h5', 'wb').write(r.content)
     simPerform = pd.read_hdf('simulatedPerformance_github.h5',
                              'simulatedPerformance')
 
     r = requests.get(simPercentileFile, allow_redirects=True)
-    open('simulatedPerformanceStats_github.h5', 'wb').write(r.content)
+    open(temp + 'simulatedPerformanceStats_github.h5', 'wb').write(r.content)
     simPercentile = pd.read_hdf(
         'simulatedPerformanceStats_github.h5', 'simulatedPerformanceStats')
 
     r = requests.get(simPercentileYearlyFile, allow_redirects=True)
-    open('simPercentileYearly_github.h5', 'wb').write(r.content)
+    open(temp + 'simPercentileYearly_github.h5', 'wb').write(r.content)
     simPercentileYearly = pd.read_hdf(
         'simPercentileYearly_github.h5', 'simPercentileYearly')
 
     r = requests.get(marketReturnsFile, allow_redirects=True)
-    open('marketReturns_github.h5', 'wb').write(r.content)
+    open(temp + 'marketReturns_github.h5', 'wb').write(r.content)
     marketReturns = pd.read_hdf(
         'marketReturns_github.h5', 'marketReturns')
 
