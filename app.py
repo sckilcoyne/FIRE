@@ -19,9 +19,15 @@ import os
 import tables
 # import pickle5 as pickle
 
+plt.style.use('dark_background')
+
 
 # %% App Header
-st.set_page_config(page_title='FIRE Milestone Calculator', page_icon=None)
+st.set_page_config(page_title='FIRE Milestone Calculator',
+                   page_icon=':fire:',
+                   initial_sidebar_state='expanded',
+                   layout='wide')
+
 st.title('FIRE Milestone Calculator')
 
 # %%Import Data
@@ -84,49 +90,7 @@ def import_from_github(githubURL):
 distFits, simPerform, simPercentile, simPercentileYearly, marketReturns = import_from_github(
     githubURL)
 
-# %% Sidebar Inputs
-age = st.sidebar.number_input(
-    'Current Age', min_value=18, max_value=70, value=30, step=1)
-
-currentSavings = st.sidebar.number_input(
-    'Current Invested Savings ($)', value=200000, step=1000)
-
-currentSalary = st.sidebar.number_input(
-    'Salary ($)', min_value=0, value=90000, step=1000)
-
-savingsRate = st.sidebar.number_input(
-    'Savings Rate (%)', min_value=5., max_value=80., value=30.,
-    step=0.5, format='%.1f') / 100
-
-SWR = st.sidebar.number_input(
-    'Withdrawal Rate (%)', min_value=1., max_value=10., value=3.5,
-    step=0.25, format='%.1f') / 100
-
-# RoR = st.sidebar.number_input(
-#     'Average Rate of Return (%)', min_value=1., max_value=15., value=6.,
-#     step=0.25, format='%.1f') / 100
-# RoR = marketReturns['Net Returns'].median()
-
-returnRange = st.sidebar.slider(
-    'Return Bounds (Percentile)',
-    min_value=1, max_value=99,
-    value=[25, 75], step=1)
-
-# Get rate of returns; median and upper and lower bounds (from user)
-medianReturn = simPercentileYearly['50 Percentile'].divide(100)
-upperReturn = simPercentileYearly[str(
-    int(returnRange[1])) + ' Percentile'].divide(100)
-lowerReturn = simPercentileYearly[str(
-    int(returnRange[0])) + ' Percentile'].divide(100)
-
-# %% Calculations
-
-ages = list(range(age, 81))
-yearsAway = [x - age for x in ages]
-
-yearlySavings = currentSalary * savingsRate
-netIncome = currentSalary - yearlySavings
-retirementGoal = netIncome / SWR
+# %% Functions
 
 
 def growth(currentSavings, yearsAway, RoR, yearlySavings):
@@ -229,109 +193,165 @@ def milestone_interp(yearlyValues, yearList, milestoneGoal):
 
     return years2goal
 
-# # Assumed RoR
-# minFV, minTotalGrowth = growth(
-#     currentSavings, yearsAway, RoR - 0.02, yearlySavings)
-# maxFV, maxTotalGrowth = growth(
-#     currentSavings, yearsAway, RoR + 0.02, yearlySavings)
-# FV, totalGrowth = growth(currentSavings, yearsAway, RoR, yearlySavings)
 
-# achieveRE = []
-# achieveRE.append(milestone_achievement(
-#     RoR, currentSavings, yearlySavings, retirementGoal) + age)
-# achieveRE.append(milestone_achievement(
-#     RoR - 0.02, currentSavings, yearlySavings, retirementGoal) + age)
-# achieveRE.append(milestone_achievement(
-#     RoR + 0.02, currentSavings, yearlySavings, retirementGoal) + age)
+# %% Sidebar Inputs
+age = st.sidebar.number_input(
+    'Current Age', min_value=18, max_value=70, value=30, step=1)
 
+currentSavings = st.sidebar.number_input(
+    'Current Invested Savings ($)', value=200000, step=1000)
 
-# Sim RoR
+currentSalary = st.sidebar.number_input(
+    'Salary ($)', min_value=0, value=90000, step=1000)
+
+savingsRate = st.sidebar.number_input(
+    'Savings Rate (%)', min_value=5., max_value=80., value=30.,
+    step=0.5, format='%.1f') / 100
+
+SWR = st.sidebar.number_input(
+    'Withdrawal Rate (%)', min_value=1., max_value=10., value=3.5,
+    step=0.25, format='%.2f') / 100
+
+# RoR = st.sidebar.number_input(
+#     'Average Rate of Return (%)', min_value=1., max_value=15., value=6.,
+#     step=0.25, format='%.1f') / 100
+# RoR = marketReturns['Net Returns'].median()
+
+returnRange = st.sidebar.slider(
+    'Return Bounds (Percentile)',
+    min_value=1, max_value=99,
+    value=[25, 75], step=1)
+
+# %% Calculations
+
+# Get rate of returns; median and upper and lower bounds (from user)
+medianReturn = simPercentileYearly['50 Percentile'].divide(100)
+upperReturn = simPercentileYearly[str(
+    int(returnRange[1])) + ' Percentile'].divide(100)
+lowerReturn = simPercentileYearly[str(
+    int(returnRange[0])) + ' Percentile'].divide(100)
+
+# List of ages
+ages = list(range(age, 81))
+yearsAway = [x - age for x in ages]
+yearsRetire = list(range(100))
+
+# Basic FIRE Parameters
+yearlySavings = currentSalary * savingsRate
+netIncome = currentSalary - yearlySavings
+retirementGoal = netIncome / SWR
+
+# Accumalation Years Growth
 print('Running lower growth')
 minFV, minTotalGrowth = growth(
     currentSavings, yearsAway, lowerReturn, yearlySavings)
-# print(minFV)
 print('Running upper growth')
 maxFV, maxTotalGrowth = growth(
     currentSavings, yearsAway, upperReturn, yearlySavings)
-# print(maxFV)
 print('Running median growth')
 FV, totalGrowth = growth(
     currentSavings, yearsAway, medianReturn, yearlySavings)
-# print(FV)
 
 achieveRE = []
-# achieveRE.append(milestone_calc(
-#     medianReturn, currentSavings, yearlySavings, retirementGoal) + age)
-# achieveRE.append(milestone_calc(
-#     lowerReturn, currentSavings, yearlySavings, retirementGoal) + age)
-# achieveRE.append(milestone_calc(
-#     upperReturn, currentSavings, yearlySavings, retirementGoal) + age)
-
 achieveRE.append(milestone_interp(
     FV, yearsAway, retirementGoal) + age)
 achieveRE.append(milestone_interp(
     minFV, yearsAway, retirementGoal) + age)
 achieveRE.append(milestone_interp(
     maxFV, yearsAway, retirementGoal) + age)
-
 print('achieveRE: ' + str(achieveRE))
 
+# Retirement Years
+retireAge = math.ceil(achieveRE[0])
+retirementValue, _ = growth(
+    retirementGoal, yearsRetire, medianReturn, -netIncome)
+retirementValueMax, _ = growth(
+    retirementGoal, yearsRetire, upperReturn, -netIncome)
+retirementValueMin, _ = growth(
+    retirementGoal, yearsRetire, lowerReturn, -netIncome)
 
 # %% Plot Investment Growth and FIRE Milestones
-fig, ax = plt.subplots(2, sharex=True)
+# fig, ax = plt.subplots(3, sharex=True)
+fig = plt.figure(figsize=(10, 10))
+
+ax1 = fig.add_subplot(3, 1, 1)
+ax2 = fig.add_subplot(3, 1, 2, sharex=ax1)
+ax3 = fig.add_subplot(3, 1, 3)
 
 # Savings over time
-ax[0].plot(ages, FV)
-ax[0].fill_between(ages, minFV, maxFV, alpha=0.2)
-ax[0].axhline(retirementGoal, label='Retirement Goal',
-              linestyle='--', linewidth=1, color='g')
-ax[0].annotate(
+ax1.plot(ages, FV)
+ax1.fill_between(ages, minFV, maxFV, alpha=0.2)
+ax1.axhline(retirementGoal, label='Retirement Goal',
+            linestyle='--', linewidth=1, color='g')
+ax1.annotate(
     'Retirement Goal: $' + str(round(retirementGoal / 1e6, 2)) + ' mil',
     (age, retirementGoal),  # this is the point to label
     textcoords="offset points",  # how to position the text
     xytext=(1, 2),  # distance from text to points (x,y)
     ha='left')  # horizontal alignment can be left, right or center
-ax[0].annotate(
+ax1.annotate(
     str(round(achieveRE[0], 1)),  # this is the text
     (achieveRE[0], retirementGoal),  # this is the point to label
     textcoords="offset points",  # how to position the text
     xytext=(0, 10),  # distance from text to points (x,y)
     ha='center')  # horizontal alignment can be left, right or center
-ax[0].annotate(
+ax1.annotate(
     str(round(achieveRE[1], 1)),  # this is the text
     (achieveRE[1], retirementGoal),  # this is the point to label
     textcoords="offset points",  # how to position the text
     xytext=(+10, -10),  # distance from text to points (x,y)
     ha='center')  # horizontal alignment can be left, right or center
-ax[0].annotate(
+ax1.annotate(
     str(round(achieveRE[2], 1)),  # this is the text
     (achieveRE[2], retirementGoal),  # this is the point to label
     textcoords="offset points",  # how to position the text
     xytext=(-10, -10),  # distance from text to points (x,y)
     ha='center')  # horizontal alignment can be left, right or center
 
-ax[0].set_xlim([age, achieveRE[1] + 5])
-# ax[0].set_xlim([age, 60])
-ax[0].set_ylim([0, retirementGoal * 2])
-ax[0].yaxis.set_major_formatter('${x:1.0f}')
-# ax[0].legend()
-ax[0].set_title('Retirement Savings')
+ax1.set_xlim([age, achieveRE[1] + 5])
+ax1.set_ylim([0, retirementGoal * 2])
+ax1.yaxis.set_major_formatter('${x:1.0f}')
+ax1.set_title('Retirement Savings')
 
 # Investment Gains
-ax[1].plot(ages, totalGrowth)
-ax[1].fill_between(ages, minTotalGrowth, maxTotalGrowth, alpha=0.2)
-ax[1].axhline(currentSalary, label='Salary',
-              linestyle='--', linewidth=1, color='k')
-ax[1].axhline(netIncome, label='Net Income',
-              linestyle='--', linewidth=1, color='r')
-ax[1].axhline(yearlySavings, label='Yearly Savings',
-              linestyle='--', linewidth=1, color='g')
+ax2.plot(ages, totalGrowth)
+ax2.fill_between(ages, minTotalGrowth, maxTotalGrowth, alpha=0.2)
+ax2.axhline(currentSalary, label='Salary',
+            linestyle='--', linewidth=1, color='darkorange')
+ax2.axhline(netIncome, label='Net Income',
+            linestyle='--', linewidth=1, color='r')
+ax2.axhline(yearlySavings, label='Yearly Savings',
+            linestyle='--', linewidth=1, color='g')
 
-ax[1].set_xlabel('Age')
-ax[1].set_ylim([0, currentSalary * 3])
-ax[1].yaxis.set_major_formatter('${x:1.0f}')
-ax[1].legend()
-ax[1].set_title('Invesment Growth')
+ax2.set_xlabel('Age')
+ax2.set_ylim([0, currentSalary * 3])
+ax2.yaxis.set_major_formatter('${x:1.0f}')
+ax2.legend()
+ax2.set_title('Invesment Growth')
+
+# Plot Retirement Strategies
+yearMax = 100 - retireAge
+
+ax3.plot(yearsRetire, retirementValue)
+ax3.fill_between(yearsRetire,
+                 retirementValueMin,
+                 retirementValueMax,
+                 alpha=0.2)
+ax3.axhline(retirementGoal,
+            linestyle='--', linewidth=1, color='g')
+ax3.annotate(
+    'Retirement Start: $' + str(round(retirementGoal / 1e6, 2)) + ' mil',
+    (yearMax, retirementGoal),  # this is the point to label
+    textcoords="offset points",  # how to position the text
+    xytext=(-2, -10),  # distance from text to points (x,y)
+    ha='right')  # horizontal alignment can be left, right or center
+
+ax3.set_xlabel('Years into Retirement')
+ax3.set_ylim([0, retirementGoal * 2])
+ax3.set_xlim([0, yearMax])
+ax3.yaxis.set_major_formatter('${x:1.0f}')
+ax3.set_title('Savings through Retirement')
+
 
 fig.tight_layout()
 st.pyplot(fig)
