@@ -1,7 +1,7 @@
 matplotlib==3.3.4
-tables==3.6.1
-numpy==1.19.2
-pandas==1.2.3
 requests==2.25.1
-streamlit==0.78.0
 scipy==1.6.1
+tables==3.6.1
+streamlit==0.78.0
+pandas==1.2.3
+numpy==1.19.2

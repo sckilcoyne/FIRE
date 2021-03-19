@@ -39,7 +39,8 @@ githubURL = githubRepo + 'blob/' + githubBranch + githubFolder
 def import_from_github(githubURL):
 
     raw = '?raw=true'
-    temp = 'tmp'  # https://discuss.streamlit.io/t/file-permisson-error-on-streamlit-sharing/8291/5
+    temp = '/tmp/'  # https://discuss.streamlit.io/t/file-permisson-error-on-streamlit-sharing/8291/5
+    os.makedirs(temp, exist_ok=True)
 
     distFitsFile = githubURL + 'results.h5' + raw
     simPerformFile = githubURL + 'simulatedPerformance.h5' + raw
@@ -53,6 +54,7 @@ def import_from_github(githubURL):
     # Import data
     r = requests.get(distFitsFile, allow_redirects=True)
     tempFile = os.path.join(temp, 'resultsDf_github.h5')
+    print(tempFile)
     open(tempFile, 'wb').write(r.content)
     distFits = pd.read_hdf(tempFile, 'results')
 
