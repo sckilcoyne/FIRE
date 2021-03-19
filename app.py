@@ -28,8 +28,6 @@ st.title('FIRE Milestone Calculator')
 
 # Github data sources
 githubRepo = 'https://github.com/sckilcoyne/FIRE/'
-# githubBranch = git.Repo(
-#     search_parent_directories=True).active_branch.name + '/'
 githubBranch = 'main' + '/'
 githubFolder = 'Outputs/'
 githubURL = githubRepo + 'blob/' + githubBranch + githubFolder
@@ -38,10 +36,12 @@ githubURL = githubRepo + 'blob/' + githubBranch + githubFolder
 @st.cache
 def import_from_github(githubURL):
 
-    raw = '?raw=true'
-    temp = '/tmp/'  # https://discuss.streamlit.io/t/file-permisson-error-on-streamlit-sharing/8291/5
-    os.makedirs(temp, exist_ok=True)
+    # Save loaded files in temp directory
+    # https://discuss.streamlit.io/t/file-permisson-error-on-streamlit-sharing/8291/5
+    temp = '/tmp/'
+    os.makedirs(temp, exist_ok=True)  # Make temp directory if needed
 
+    raw = '?raw=true'
     distFitsFile = githubURL + 'results.h5' + raw
     simPerformFile = githubURL + 'simulatedPerformance.h5' + raw
     simPercentileFile = githubURL + 'simulatedPerformanceStats.h5' + raw
@@ -105,14 +105,14 @@ SWR = st.sidebar.number_input(
 # RoR = st.sidebar.number_input(
 #     'Average Rate of Return (%)', min_value=1., max_value=15., value=6.,
 #     step=0.25, format='%.1f') / 100
-RoR = marketReturns['Net Returns'].median()
+# RoR = marketReturns['Net Returns'].median()
 
 returnRange = st.sidebar.slider(
     'Return Bounds (Percentile)',
     min_value=1, max_value=99,
     value=[25, 75], step=1)
 
-# simPercentileYearly[0:1] = 0
+# Get rate of returns; median and upper and lower bounds (from user)
 medianReturn = simPercentileYearly['50 Percentile'].divide(100)
 upperReturn = simPercentileYearly[str(
     int(returnRange[1])) + ' Percentile'].divide(100)
@@ -202,21 +202,27 @@ def milestone_calc(RoR, currentSavings, yearlySavings, milestoneGoal):
 
 
 def milestone_interp(yearlyValues, yearList, milestoneGoal):
+    # Linear interpolation of milestone achievement
     if type(yearlyValues) is list:
-        # print(yearlyValues)
-        overshootValue = list(
+        # Find values greater than goal
+        valueAbove = list(
             filter(lambda k: k > milestoneGoal, yearlyValues))
-        # print('past goal: ' + str(overshootValue))
         try:
-            overshootValue = overshootValue[0]
-        except IndexError:
-            overshootValue = yearlyValues[-1]
+            valueAbove = valueAbove[0]
+            idxAbove = yearlyValues.index(valueAbove)
+
+            valueBelow = yearlyValues[idxAbove - 1]
+            yearBelow = yearList[idxAbove - 1]
+
+            linInterp = (milestoneGoal - valueBelow) / \
+                (valueAbove - valueBelow)
+
+            years2goal = yearBelow + linInterp
+
+        except IndexError:  # If don't reach goal, set to max year
+            years2goal = yearList[-1]
             print('Does not reach goal!')
 
-        # print('past goal: ' + str(overshootValue))
-        overshotYear = yearlyValues.index(overshootValue)
-        # print('goal index: ' + str(overshotYear))
-        years2goal = yearList[overshotYear]
     else:
         print('Wrong milestone function: ' + str(type(yearlyValues)))
         years2goal = 0
