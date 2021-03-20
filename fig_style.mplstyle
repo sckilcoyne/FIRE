@@ -1,4 +1,4 @@
-# Set black background default line colors to white.
+# Derived from 'dark_background' style
 
 lines.color: white
 patch.edgecolor: white
