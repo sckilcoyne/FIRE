@@ -15,6 +15,14 @@ import matplotlib.pyplot as plt
 from ForcePickle import pickle_protocol
 import pandas as pd
 
+# Set styles and themes
+# matplotlib.rcParams.update(matplotlib.rcParamsDefault)
+githubContent = 'https://raw.githubusercontent.com/sckilcoyne/FIRE/'
+githubBranch = 'SWR'
+styleFile = 'fig_style'
+styleFile = githubContent + githubBranch + '/' + styleFile + '.mplstyle'
+plt.style.use(styleFile)
+
 # %% Parameters
 goodFitThresh = 0.95  # How good should a distribution be to used in sims
 simYears = 100  # Number of years to generate random data for
@@ -215,18 +223,18 @@ fig.suptitle('Market Returns \n Historical and Simulated')
 # Returns Distribution Histogram
 ax1 = plt.subplot(2, 2, (1, 2))
 ax1.hist(marketReturns['Net Returns 100'], density=True,
-         bins=20, label='Net Returns', alpha=0.5)
+         bins=20, label='Net Returns', alpha=0.3, color='#0de0ec')
 
 # Median Return
 medianReturn = marketReturns['Net Returns 100'].median()
 ax1.axvline(medianReturn, label='Meadin Return',
-            linestyle='--', linewidth=2, color='k')
+            linestyle='--', linewidth=2, color='w')
 ax1.annotate(
     str(round(medianReturn, 1)) + '%',  # annotation text
     (medianReturn, 0),  # this is the point to label
     textcoords="offset points",  # how to position the text
     xytext=(3, 2),  # distance from text to points (x,y)
-    color='k', size='large', weight='demi',
+    color='w', size='large', weight='demi',
     ha='left')  # horizontal alignment can be left, right or center
 
 # Best Continuous distributions
@@ -322,13 +330,11 @@ ax3 = plt.subplot(2, 2, 4)  # Log axis for long-term growth
 
 # Plot density map
 ax2.pcolormesh(xLin, yLin, np.power(zLin.reshape(xLin.shape), 0.5),
-               shading='gouraud', cmap='Greys')
+               shading='gouraud', cmap='Greys_r')
 # ax3.pcolormesh(xLog, yLog, np.power(zLog.reshape(xLog.shape), 0.3),
 #                shading='gouraud', cmap='Greys')
 
 for ax in [ax2, ax3]:
-    # simulatedPerformance.plot(
-    #     legend=False, color='gainsboro', alpha=0.01, ax=ax)
     plotSimmedStats.plot(ax=ax)
 
 # Format Linear Plot

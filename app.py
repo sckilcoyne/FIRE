@@ -8,6 +8,7 @@ Created on Sat Feb 27 17:32:25 2021
 # %% Set up
 # import git
 import streamlit as st
+import matplotlib
 import matplotlib.pyplot as plt
 # import numpy as np
 import math
@@ -19,16 +20,24 @@ import os
 import tables
 # import pickle5 as pickle
 
-plt.style.use('dark_background')
-
+# Set styles and themes
+# matplotlib.rcParams.update(matplotlib.rcParamsDefault)
+githubContent = 'https://raw.githubusercontent.com/sckilcoyne/FIRE/'
+githubBranch = 'main'
+styleFile = 'fig_style'
+styleFile = githubContent + githubBranch + '/' + styleFile + '.mplstyle'
+plt.style.use(styleFile)
 
 # %% App Header
-st.set_page_config(page_title='FIRE Milestone Calculator',
+st.set_page_config(page_title='FIRE Calculator',
                    page_icon=':fire:',
                    initial_sidebar_state='expanded',
                    layout='wide')
 
-st.title('FIRE Milestone Calculator')
+st.title('FIRE Calculator')
+'''
+[@sckilcoyne](https://github.com/sckilcoyne/FIRE)
+'''
 
 # %%Import Data
 
@@ -222,6 +231,12 @@ returnRange = st.sidebar.slider(
     min_value=1, max_value=99,
     value=[25, 75], step=1)
 
+ageMax = st.sidebar.slider(
+    'Age of Survivability',
+    min_value=age + 5,
+    max_value=age + 100,
+    value=100)
+
 # %% Calculations
 
 # Get rate of returns; median and upper and lower bounds (from user)
@@ -234,7 +249,6 @@ lowerReturn = simPercentileYearly[str(
 # List of ages
 ages = list(range(age, 81))
 yearsAway = [x - age for x in ages]
-yearsRetire = list(range(100))
 
 # Basic FIRE Parameters
 yearlySavings = currentSalary * savingsRate
@@ -263,6 +277,7 @@ print('achieveRE: ' + str(achieveRE))
 
 # Retirement Years
 retireAge = math.ceil(achieveRE[0])
+yearsRetire = list(range(ageMax - retireAge + 1))
 retirementValue, _ = growth(
     retirementGoal, yearsRetire, medianReturn, -netIncome)
 retirementValueMax, _ = growth(
@@ -310,7 +325,7 @@ ax1.annotate(
 
 ax1.set_xlim([age, achieveRE[1] + 5])
 ax1.set_ylim([0, retirementGoal * 2])
-ax1.yaxis.set_major_formatter('${x:1.0f}')
+ax1.yaxis.set_major_formatter('${x:,.0f}')
 ax1.set_title('Retirement Savings')
 
 # Investment Gains
@@ -325,12 +340,13 @@ ax2.axhline(yearlySavings, label='Yearly Savings',
 
 ax2.set_xlabel('Age')
 ax2.set_ylim([0, currentSalary * 3])
-ax2.yaxis.set_major_formatter('${x:1.0f}')
+ax2.yaxis.set_major_formatter('${x:,.0f}')
 ax2.legend()
 ax2.set_title('Invesment Growth')
 
 # Plot Retirement Strategies
-yearMax = 100 - retireAge
+# yearMax = 100 - retireAge
+yearMax = ageMax - retireAge
 
 ax3.plot(yearsRetire, retirementValue)
 ax3.fill_between(yearsRetire,
@@ -346,10 +362,12 @@ ax3.annotate(
     xytext=(-2, -10),  # distance from text to points (x,y)
     ha='right')  # horizontal alignment can be left, right or center
 
-ax3.set_xlabel('Years into Retirement')
+ax3.set_xlabel('Retirement Year\nAge')
 ax3.set_ylim([0, retirementGoal * 2])
 ax3.set_xlim([0, yearMax])
-ax3.yaxis.set_major_formatter('${x:1.0f}')
+ax3.yaxis.set_major_formatter('${x:,.0f}')
+ax3.xaxis.set_major_formatter(
+    lambda x, pos: str(int(x)) + '\n' + str(int(x + retireAge)))
 ax3.set_title('Savings through Retirement')
 
 
@@ -357,11 +375,32 @@ fig.tight_layout()
 st.pyplot(fig)
 
 # %% Description
-st.subheader('Description')
-st.text('Yearly Savings = Salary * Savings Rate' + '\n' +
-        'Net Income = Salary - Yearly Savings' + '\n' +
-        'Retirement Goal = Net Income / SWR' + '\n')
+with st.beta_expander('Description of Method'):
 
-githubRepo = 'https://raw.githubusercontent.com/sckilcoyne/FIRE/'
-githubURL = githubRepo + githubBranch + githubFolder
-st.markdown('![Market Returns](' + githubURL + 'Market%20Returns.png)')
+    '''
+    This model assumes:
+    * 100% stock portfolio matching the market\'s returns
+    * Market returns are after inflation; everything is presented in
+    today\'s dollars
+    * Your salary, savings rate and expenses stay static
+    '''
+
+    st.latex('Yearly Savings = Salary * Savings Rate')
+    st.latex('Net Income = Salary - Yearly Savings')
+    st.latex(r'Retirement Goal = \frac{Net Income}{SWR}')
+
+    '''
+    Market return data from [Shiller](http://www.econ.yale.edu/~shiller/data.htm).
+    Yearly market returns were fit to (nearly) all continuous distributions in
+    SciPy and found all that returned >0.95 p-value. These distributions are
+    shown in the first plot below. Then random values for each distribution
+    (with p-value >0.95) were created for 100 years 1000 times. The lower plots
+    show the percentiles of these randomized sets of values. \n
+    The median of these simulated market returns is used as the projected
+    return for the savings calculations. Error bars are set using the
+    _Return Bounds_ sliders in the options.
+    '''
+
+    githubRepo = 'https://raw.githubusercontent.com/sckilcoyne/FIRE/'
+    githubURL = githubRepo + githubBranch + githubFolder
+    st.markdown('![Market Returns](' + githubURL + 'Market%20Returns.png)')
