@@ -5,3 +5,4 @@ tables==3.7.0
 streamlit==0.79.0
 pandas==1.2.3
 numpy==1.19.2
+click==8.0.4 #https://stackoverflow.com/questions/71652091/why-does-the-simplest-streamlit-example-errors-out
