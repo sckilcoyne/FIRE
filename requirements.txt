@@ -1,6 +1,6 @@
 matplotlib==3.5.1
 requests==2.27.1
-scipy==1.8.0
+scipy==1.7.3
 tables==3.7.0
 streamlit==1.8.1
 pandas==1.4.0
