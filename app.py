@@ -375,7 +375,7 @@ fig.tight_layout()
 st.pyplot(fig)
 
 # %% Description
-with st.beta_expander('Description of Method'):
+with st.expander('Description of Method'):
 
     '''
     This model assumes:
